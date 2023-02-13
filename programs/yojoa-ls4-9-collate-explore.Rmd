@@ -1,0 +1,148 @@
+---
+title: "Yojoa-LS4-9-collate-explore"
+author: "B Steele"
+date: "2023-02-13"
+output: html_document
+---
+
+# Purpose
+
+# Setup
+
+```{r}
+library(googledrive)
+library(tidyverse)
+library(lubridate)
+
+drive_auth()
+
+data_dir = file.path('data/')
+```
+
+# Download and collate data from Drive
+
+```{r}
+files = drive_ls(path = 'yojoa')
+
+dir.create('tmp')
+
+dr_down = function(filename, fileid){
+  drive_download(file = as_id(fileid), path = file.path('tmp', filename))
+}
+
+map2(files$name, files$id, dr_down)
+
+list = list.files('tmp')
+list = paste0('tmp/', list)
+
+collated = map_dfr(list, read_csv)
+
+```
+
+## Filter scene summaries
+
+```{r}
+filtered = collated %>% 
+  filter(pCount_dswe > 10)
+```
+
+## Parse out system:index
+
+```{r}
+grabDate = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  unlist(parsed)[str_len-1]
+}
+
+grabLoc = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  unlist(parsed)[str_len]
+}
+
+grabSat = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  unlist(parsed)[grep('L', unlist(parsed))]
+}
+
+filtered$date = map(filtered$`system:index`, grabDate)
+filtered$rowid = map(filtered$`system:index`, grabLoc)
+filtered$sat = map(filtered$`system:index`, grabSat)
+
+```
+
+## Format date, join with location identifiers
+
+### Read location info in
+
+```{r}
+locs = read.csv(file.path(data_dir, 'location_lat_longs_YOJOA.csv')) %>% 
+  rowid_to_column() %>% 
+  select(rowid, location)
+```
+
+```{r}
+filtered$date = ymd(filtered$date)
+
+filtered <- filtered %>% 
+  mutate(rowid = as.integer(rowid),
+         sat = as.character(sat)) %>% 
+  full_join(., locs)
+```
+
+# Landsat 4,5,7 to 8,9 handoff
+
+Summarize where there is more than one satellite in a given day.
+
+```{r}
+summary = filtered %>% 
+  group_by(date, location) %>% 
+  summarize(n = n(),
+            dup_sat = toString(sat)) 
+
+filtered <- full_join(filtered, summary)
+
+```
+
+Filter for dates with more than 1 satellite mission image, pivot data, and create a harmonized 8/9 column
+
+```{r}
+subset = filtered %>% filter(n>1) %>% select(date, sat, location, pCount_dswe, pCount_dswe3, min_cloud_dist) 
+qa <- filtered %>% filter(n>1) %>% 
+  select(med_Blue:med_Swir2, sat, date, location) %>% 
+  pivot_longer(cols = c(med_Blue:med_Swir2),
+              names_to = 'band',
+              values_to = 'values') %>% 
+  pivot_wider(names_from = sat,
+              values_from = values) %>% 
+  mutate(L89 = ifelse(!is.na(LC08), LC08, LC09)) 
+```
+
+Check relationships
+
+```{r}
+ggplot(qa, aes(x = L89, y = LE07, color = band)) +
+  geom_point(aes(size = min_cloud_dist)) +
+  theme_bw() +
+  geom_smooth(method = 'lm', se = F)
+
+lm_blue = lm(qa[qa$band == 'med_Blue',]$mean_LE07 ~qa[qa$band == 'med_Blue',]$mean_L89)
+summary(lm_blue)
+
+lm_green = lm(qa[qa$band == 'med_Green',]$mean_LE07 ~qa[qa$band == 'med_Green',]$mean_L89)
+summary(lm_green)
+
+lm_nir = lm(qa[qa$band == 'med_Nir',]$mean_LE07 ~qa[qa$band == 'med_Nir',]$mean_L89)
+summary(lm_nir)
+
+lm_red = lm(qa[qa$band == 'med_Red',]$mean_LE07 ~qa[qa$band == 'med_Red',]$mean_L89)
+summary(lm_red)
+
+lm_sw1 = lm(qa[qa$band == 'med_Swir1',]$mean_LE07 ~qa[qa$band == 'med_Swir1',]$mean_L89)
+summary(lm_sw1)
+
+lm_sw2 = lm(qa[qa$band == 'med_Swir2',]$mean_LE07 ~qa[qa$band == 'med_Swir2',]$mean_L89)
+summary(lm_sw2)
+```
