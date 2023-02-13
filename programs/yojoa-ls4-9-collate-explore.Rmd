@@ -120,6 +120,8 @@ qa <- filtered %>% filter(n>1) %>%
   mutate(L89 = ifelse(!is.na(LC08), LC08, LC09)) 
 ```
 
+need to add sat id to minclouddist
+
 Check relationships
 
 ```{r}
