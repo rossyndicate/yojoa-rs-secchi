@@ -14,51 +14,103 @@ library(googledrive)
 library(tidyverse)
 library(lubridate)
 
-drive_auth()
-
 data_dir = file.path('data/')
+
+drive_auth()
 ```
 
-# Download and collate data from Drive
+# Download and collate data and metadata from Drive
+
+Download and collate data and metadata into separate files.
 
 ```{r}
+#get a file list
 files = drive_ls(path = 'yojoa')
 
+#make a tmp dir
 dir.create('tmp')
 
+#function for downloading
 dr_down = function(filename, fileid){
   drive_download(file = as_id(fileid), path = file.path('tmp', filename))
 }
 
+#map over the function to download all files
 map2(files$name, files$id, dr_down)
 
+# create a list of the files in the tmp directory
 list = list.files('tmp')
+#add the prefix to them
 list = paste0('tmp/', list)
 
-collated = map_dfr(list, read_csv)
+meta_list = list[grepl('meta', list)]
+data_list = list[!grepl('meta', list)]
 
+#read them in and map to a dataframe
+collated_data = map_dfr(data_list, read_csv)
+collated_metadata = map_dfr(meta_list, read_csv)
+
+#clean up workspace
+rm(files)
+```
+
+Reformat the data system:index so that it will play nicely with the metadata and so we pull out the site rowid.
+
+```{r}
+grabRowid = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  unlist(parsed)[str_len]
+}
+
+grabSystemIndex = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  parsed_sub = unlist(parsed)[1:(str_len-1)]
+  str_flatten(parsed_sub, collapse = '_')
+}
+
+collated_data$rowid = map(collated_data$`system:index`,grabRowid)
+collated_data$`system:index` = map(collated_data$`system:index`, grabSystemIndex)
+
+collated_data$`system:index` = as.character(collated_data$`system:index`)
+```
+
+Grab only the metadata we want
+
+```{r}
+filtered_metadata <- collated_metadata %>% 
+  select(`system:index`, WRS_PATH, WRS_ROW, SPACECRAFT_ID, DATE_ACQUIRED, SCENE_CENTER_TIME, CLOUD_COVER, IMAGE_QUALITY, IMAGE_QUALITY_OLI, IMAGE_QUALITY_TIRS, SUN_AZIMUTH, SUN_ELEVATION)
+  
+```
+
+Join the data and metadata.
+
+```{r}
+data = left_join(collated_data, collated_metadata)
+
+#clean up workspace
+rm(collated_data, collated_metadata)
 ```
 
 ## Filter scene summaries
 
+Filter for at least 10 pixels in pCount_dswe1 (confident water)
+
 ```{r}
-filtered = collated %>% 
-  filter(pCount_dswe > 10)
+filtered = data %>% 
+  filter(pCount_dswe1 > 10)
 ```
 
 ## Parse out system:index
+
+Create new parameters of date, rowid, and satellite, and bring them to the front of the df
 
 ```{r}
 grabDate = function(sys_idx){
   parsed = str_split(sys_idx, '_')
   str_len = length(unlist(parsed))
   unlist(parsed)[str_len-1]
-}
-
-grabLoc = function(sys_idx){
-  parsed = str_split(sys_idx, '_')
-  str_len = length(unlist(parsed))
-  unlist(parsed)[str_len]
 }
 
 grabSat = function(sys_idx){
@@ -68,9 +120,10 @@ grabSat = function(sys_idx){
 }
 
 filtered$date = map(filtered$`system:index`, grabDate)
-filtered$rowid = map(filtered$`system:index`, grabLoc)
 filtered$sat = map(filtered$`system:index`, grabSat)
 
+filtered <- filtered %>% 
+  select(date, rowid, sat, med_Blue:)
 ```
 
 ## Format date, join with location identifiers
