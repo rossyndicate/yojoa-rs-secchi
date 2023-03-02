@@ -1,0 +1,614 @@
+---
+title: "Pull Landsat Collection 2 Surface Reflectance and Temperature Stacks for Missions 8 and 9"
+author: "B Steele"
+format: html
+jupyter: python3
+---
+
+```{r setup}
+library(nhdplusTools)
+library(tidyverse)
+library(sf)
+
+#point to the directory where your location information is stored
+#make sure this path ends with a '/'
+data_dir = '/Users/steeleb/Documents/GitHub/yojoa-rs-secchi/data/'
+```
+
+## *Purpose*
+
+Pull surface reflectance and temperature values for Landsat-visible lakes given user-provided locations for Landsat missions 8 and 9. Code here is heavily borrowed from the script 'LakeExport.py' and 'GEE_reflectance_pull.py' from the [LakeReflectanceRepo](https://github.com/GlobalHydrologyLab/LakeReflectanceRepo) (Simon Topp).
+
+Updates in this script from these source files include updating to Landsat Collection 2 and incorporating the Landsat 4&9 missions. Additional feature adds a **RADSAT_QA** band filter to mask out saturated pixels and the separation of LS4-7 and LS8-9 into separate workflows because QA bands are slightly different.
+
+## *Requirements*
+
+This code requires the user to run some terminal commands. You should be able to use any zsh terminal to complete these commands. You will also need a [Google Earth Engine account](https://earthengine.google.com/signup/), and then you will need to [download, install, and initialize gcloud](https://cloud.google.com/sdk/docs/install) for this to function.
+
+## *Prepare!*
+
+### Set up your `reticulate` virtual environment
+
+This step will set up and activate the Python virtual environment using `reticulate` and install the required Python packages. For a more literate version of pySetup, see the .Rmd file of the same name.
+
+```{r}
+py_env_dir = getwd()
+source(file.path(py_env_dir, 'pySetup.R'))
+```
+
+### Import python modules.
+
+These are the modules that will be used in the script.
+
+```{python}
+import time
+import ee
+import os
+import fiona
+from pandas import read_csv
+from datetime import date
+
+dataDir = r.data_dir
+```
+
+### Authenticate earth engine.
+
+At the moment, 'ee.Authenticate()' is not working in Qmd/Rmd, to authenticate manually, go to your command line interpreter or the `zsh` terminal in RStudio (`BASH` terminals will not work) and execute:
+
+`earthengine authenticate`
+
+### Initialize earth engine.
+
+```{python}
+ee.Initialize()
+```
+
+### Load in location data
+
+*Read in lat/lon file and create an EE asset. Location file must use the column names 'Latitude' and 'Longitude', otherwise make sure you rename them before running the function.*
+
+```{r}
+#point to file - must contin the parameters Latitude, Longitude, comid, and name
+locs = read.csv(file.path(data_dir, 'location_lat_longs_YOJOA.csv'))
+
+#rename to required cols Latitude, Longitude, id, name
+locs = locs %>% 
+  rowid_to_column() %>% 
+  rename(name = location,
+         id = rowid,
+         Latitude = lat,
+         Longitude = long)
+
+#give this a short project name (for file naming conventions)
+proj = 'yojoa'
+
+#and specify a folder name for the landsat stacks to get dumped into in your Google Drive. The script will create the folder if it does not exist.
+proj_folder = 'yojoa'
+```
+
+### **The remaining code will need to be run, but you won't have to alter any of the code below in order to output files to your Google Drive unless you want to change any of the settings of the tool.**
+
+------------------------------------------------------------------------
+
+### *Prepare your site data*
+
+Transform the site location .csv into a GEE feature
+
+```{python}
+def csv_to_eeFeat(df):
+  features=[]
+  for i in range(df.shape[0]):
+    x,y = df.Longitude[i],df.Latitude[i]
+    latlong =[x,y]
+    loc_properties = {'system:index':str(df.id[i]), 'name':df.name[i], 'id':str(df.id[i])}
+    g=ee.Geometry.Point(latlong) 
+    feature = ee.Feature(g, loc_properties)
+    features.append(feature)
+  ee_object = ee.FeatureCollection(features)
+  return ee_object
+
+locs_feature = csv_to_eeFeat(r.locs)  
+
+#check to make sure everything showed up.
+locs_feature.getInfo()
+```
+
+### Using NHDPlusTools, grab the waterbody polygon by the Latitude and Longitude of a point
+
+Note, that if you have multiple points in any given lake, you will need to find the distinct features in the `all_lakes` multipolygon, which you should be able to do using `distinct`. This chunk saves the polygons in a local file, to be loaded as a python Fiona object in the following section.Note, this will not function outside of the US as it is specific to the NHD Plus data, which has the extent of the US.
+
+```{r}
+
+wbd_pts = st_as_sf(locs, crs = 'EPSG:4326', coords = c('Longitude', 'Latitude'))
+
+names = locs$name
+
+for(w in 1:length(names)) {
+  aoi_name = wbd_pts[wbd_pts$name == names[w],]
+  lake = get_waterbodies(AOI = aoi_name)
+  if (w == 1) {
+    all_lakes = lake
+  } else {
+    all_lakes = rbind(all_lakes, lake)
+  }
+}
+
+all_lakes = all_lakes %>% select(id, comid, gnis_id:elevation, meandepth:maxdepth)
+
+#save info locally
+write.csv(st_drop_geometry(all_lakes), (file.path(data_dir, 'NHDPlus_stats_lakes.csv')), row.names = F)
+
+all_lakes = all_lakes %>% select(comid, id, gnis_name)
+
+st_write(all_lakes, file.path(data_dir, 'NHDPlus_lakes.shp'))
+```
+
+### Load polygons as Earth Engine Objects
+
+This chunk creates a Python Fiona object and creates an `ee.FeatureCollection` from those files that can be used later in the script.
+
+```{python}
+# Load the shapefile into a Fiona object
+with fiona.open(os.path.join(dataDir+'NHDPlus_NWlakes.shp')) as src:
+    shapes = [ee.Geometry.Polygon(
+        [[x[0], x[1]] for x in feature['geometry']['coordinates'][0]])
+        for feature in src]
+
+# Create an ee.Feature for each shape
+features = [ee.Feature(shape, {}) for shape in shapes]
+
+# Create an ee.FeatureCollection from the ee.Features
+lakes_feat = ee.FeatureCollection(features)
+
+```
+
+Grab WRS tiles (these are the 'path' and 'rows' that Landsat operates on) in descending (daytime) mode for CONUS. We'll use the path-row information to subset data later on to prevent GEE from hanging due to information overload.
+
+```{python}
+wrs = ee.FeatureCollection('users/sntopp/wrs2_asc_desc')\
+    .filterBounds(locs_feature) #grab only wrs overlap with dp
+wrs = wrs.filterMetadata('MODE', 'equals', 'D') #only grab the descending (daytime) path
+    
+pr = wrs.aggregate_array('PR').getInfo() #create PathRow list
+```
+
+## *Load in Landsat Collections*
+
+Grab all Landsat Collection 2 image collections, apply scaling factors, and harmonize band names and definitions
+
+#### applyScaleFactors: the function to apply scaling factors to an image collection
+
+```{python}
+# per GEE code to scale SR
+def applyScaleFactors(image):
+  opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2)
+  thermalBands = image.select('ST_B.*').multiply(0.00341802).add(149.0)
+  return image.addBands(opticalBands, None, True).addBands(thermalBands, None,True)
+
+```
+
+#### get image collections
+
+As written, this script only removes scenes with 95% cloud cover. If you're processing data over a very large area (regions of the United states or larger), you may wish to increase this initial filter to decrease processing time. The default for Aquasat v1 was 75% cover because in Collection 1 there were persistent artefacts of cloud cover in the RS data.
+
+```{python}
+#grab images and apply scaling factors
+l8 = (ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+    .map(applyScaleFactors)
+    .filter(ee.Filter.lt('CLOUD_COVER', 95)))
+l9 = (ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+    .map(applyScaleFactors)
+    .filter(ee.Filter.lt('CLOUD_COVER', 95)))
+
+# merge collections by image processing groups
+ls89 = ee.ImageCollection(l8.merge(l9)).filterBounds(wrs)  
+    
+# existing band names
+bn89 = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'QA_PIXEL', 'SR_QA_AEROSOL', 'QA_RADSAT', 'ST_B10', 'ST_QA', 'ST_CDIST']
+# new band names
+bns = ['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2','pixel_qa', 'aerosol_qa', 'radsat_qa', 'SurfaceTemp', 'temp_qa', 'ST_CDIST']
+ 
+# rename bands  
+ls89 = ls89.select(bn89, bns)
+
+# do a reality check to see how many unique scenes are here. This can take a few seconds to run if it's a large area - I don't suggest this if the length of your WRS object is >5.
+if len(pr) <= 5 :
+  ls89_count = ls89.aggregate_count('LANDSAT_PRODUCT_ID').getInfo()
+  print(ls89_count)
+
+```
+
+## *Load functions*
+
+### General functions:
+
+#### dpBuff: To buffer lat/longs
+
+```{python}
+## Buffer the lake sites
+def dpBuff(i):
+  return i.buffer(90) #doing a 90m buffer for general use
+  
+```
+
+#### addRadMask: bitmask for saturated SR pixels:
+
+```{python}
+def addRadMask(image):
+  #grab the radsat band
+  satQA = image.select('radsat_qa')
+  # all must be non-saturated per pixel
+  satMask = satQA.eq(0).rename('radsat')
+  return image.addBands(satMask).updateMask(satMask)
+
+```
+
+#### *cfMask: function to mask out clouds/bad QA pixels*
+
+```{python}
+# create a mask for the images, based on the pixel QA bits.
+def cfMask(image):
+  #grab just the pixel_qa info
+  qa = image.select('pixel_qa')
+  cloudqa = (qa.bitwiseAnd(1 << 1).rename('cfmask') #dialated clouds value 1
+    .where(qa.bitwiseAnd(1 << 2), ee.Image(2)) #cirrus clouds value 2
+    .where(qa.bitwiseAnd(1 << 3), ee.Image(3)) # clouds value 3
+    .where(qa.bitwiseAnd(1 << 4), ee.Image(4)) # cloud shadows value 4
+    .where(qa.bitwiseAnd(1 << 5), ee.Image(5))) # snow value 5
+  return image.addBands(cloudqa)
+```
+
+#### srAerosol: grabbing qualitative measure of aerosol Level
+
+```{python}
+def srAerosol(image):
+  aerosolQA = image.select('aerosol_qa')
+  medHighAero = aerosolQA.bitwiseAnd(1 << 7).rename('medHighAero')# pull out mask out where aeorosol is med and high
+  return image.addBands(medHighAero)
+```
+
+#### *Bandmath functions for Dswe:*
+
+DSWE functions (from Sam Sillen, adpated from S Topp). Note that you must use image expression, not normalizedDifference, otherwise you end up with too many false negatives!
+
+```{python}
+# modified normalized difference water index
+def Mndwi(image):
+  return (image.expression('(GREEN - SWIR1) / (GREEN + SWIR1)', {
+    'GREEN': image.select(['Green']),
+    'SWIR1': image.select(['Swir1'])
+  }))
+
+
+# multi-band Spectral Relationship Visible
+def Mbsrv(image):
+  return (image.select(['Green']).add(image.select(['Red'])).rename('mbsrv'))
+
+
+# Multi-band Spectral Relationship Near infrared
+def Mbsrn(image):
+  return (image.select(['Nir']).add(image.select(['Swir1'])).rename('mbsrn'))
+
+
+# Normalized Difference Vegetation Index
+def Ndvi(image):
+  return (image.expression('(NIR - RED) / (NIR + RED)', {
+    'RED': image.select(['Red']),
+    'NIR': image.select(['Nir'])
+  }))
+
+
+# Automated Water Extent Shadow
+def Awesh(image):
+  return (image.expression('Blue + 2.5 * Green + (-1.5) * mbsrn + (-0.25) * Swir2', {
+    'Blue': image.select(['Blue']),
+    'Green': image.select(['Green']),
+    'mbsrn': Mbsrn(image).select(['mbsrn']),
+    'Swir2': image.select(['Swir2'])
+  }))
+
+
+```
+
+#### *DSWE: calculation of Dynamic Surface Water Extent*
+
+```{python}
+## The DSWE Function itself    
+def DSWE(i):
+  mndwi = Mndwi(i)
+  mbsrv = Mbsrv(i)
+  mbsrn = Mbsrn(i)
+  awesh = Awesh(i)
+  swir1 = i.select(['Swir1'])
+  nir = i.select(['Nir'])
+  ndvi = Ndvi(i)
+  blue = i.select(['Blue'])
+  swir2 = i.select(['Swir2'])
+  # These thresholds are taken from the LS Collection 2 DSWE Data Format Control Book:
+  # (https:#d9-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/media/files/LSDS-2042_LandsatC2_L3_DSWE_DFCB-v2.pdf)
+  # Inputs are meant to be scaled reflectance values 
+  t1 = mndwi.gt(0.124) # MNDWI greater than Wetness Index Threshold
+  t2 = mbsrv.gt(mbsrn) # MBSRV greater than MBSRN
+  t3 = awesh.gt(0) #AWESH greater than 0
+  t4 = (mndwi.gt(-0.44)  #Partial Surface Water 1 thresholds
+   .And(swir1.lt(0.09)) #900 for no scaling (LS Collection 1)
+   .And(nir.lt(0.15)) #1500 for no scaling (LS Collection 1)
+   .And(ndvi.lt(0.7)))
+  t5 = (mndwi.gt(-0.5) #Partial Surface Water 2 thresholds
+   .And(blue.lt(0.1)) #1000 for no scaling (LS Collection 1)
+   .And(swir1.lt(0.3)) #3000 for no scaling (LS Collection 1)
+   .And(swir2.lt(0.1)) #1000 for no scaling (LS Collection 1)
+   .And(nir.lt(0.25))) #2500 for no scaling (LS Collection 1)
+  t = (t1
+    .add(t2.multiply(10))
+    .add(t3.multiply(100))
+    .add(t4.multiply(1000))
+    .add(t5.multiply(10000)))
+  noWater = (t.eq(0)
+    .Or(t.eq(1))
+    .Or(t.eq(10))
+    .Or(t.eq(100))
+    .Or(t.eq(1000)))
+  hWater = (t.eq(1111)
+    .Or(t.eq(10111))
+    .Or(t.eq(11011))
+    .Or(t.eq(11101))
+    .Or(t.eq(11110))
+    .Or(t.eq(11111)))
+  mWater = (t.eq(111)
+    .Or(t.eq(1011))
+    .Or(t.eq(1101))
+    .Or(t.eq(1110))
+    .Or(t.eq(10011))
+    .Or(t.eq(10101))
+    .Or(t.eq(10110))
+    .Or(t.eq(11001))
+    .Or(t.eq(11010))
+    .Or(t.eq(11100)))
+  pWetland = t.eq(11000)
+  lWater = (t.eq(11)
+    .Or(t.eq(101))
+    .Or(t.eq(110))
+    .Or(t.eq(1001))
+    .Or(t.eq(1010))
+    .Or(t.eq(1100))
+    .Or(t.eq(10000))
+    .Or(t.eq(10001))
+    .Or(t.eq(10010))
+    .Or(t.eq(10100)))
+  iDswe = (noWater.multiply(0)
+    .add(hWater.multiply(1))
+    .add(mWater.multiply(2))
+    .add(pWetland.multiply(3))
+    .add(lWater.multiply(4)))
+  return iDswe.rename('dswe')
+
+```
+
+#### *CalcHillShades: DSWE hill shade correction*
+
+```{python}
+def CalcHillShades(image, geo):
+  MergedDEM = ee.Image("users/eeProject/MERIT").clip(geo.buffer(3000))
+  hillShade = ee.Terrain.hillshade(MergedDEM, 
+    ee.Number(image.get('SUN_AZIMUTH')), 
+    ee.Number(image.get('SUN_ELEVATION')))
+  hillShade = hillShade.rename(['hillShade'])
+  return hillShade
+
+```
+
+#### *CalcHillShadows: DSWE hill shadow correction*
+
+```{python}
+def CalcHillShadows(image, geo):
+  MergedDEM = ee.Image("users/eeProject/MERIT").clip(geo.buffer(3000))
+  hillShadow = ee.Terrain.hillShadow(MergedDEM, 
+    ee.Number(image.get('SUN_AZIMUTH')),
+    ee.Number(90).subtract(image.get('SUN_ELEVATION')), 
+    30)
+  hillShadow = hillShadow.rename(['hillShadow'])
+  return hillShadow
+
+```
+
+#### *removeGeo: Function to remove geometry from image collections*
+
+```{python}
+## Remove geometries
+def removeGeo(i):
+  return i.setGeometry(None)
+  
+```
+
+#### ***RefPull89: Pulling all the working functions together:***
+
+```{python}
+## Set up the reflectance pull
+def RefPull89(image):
+  # process image with the radsat mask
+  r = addRadMask(image).select('radsat')
+  # process image with cfmask
+  f = cfMask(image).select('cfmask')
+  # process image with st SR cloud mask
+  a = srAerosol(image).select('medHighAero')
+  # where the f mask is > 2 (clouds and cloud shadow), call that 1 (otherwise 0) and rename as clouds.
+  clouds = f.gte(1).rename('clouds')
+  #apply dswe function
+  d = DSWE(image).select('dswe')
+  dswe1 = d.eq(1).rename('dswe1').updateMask(f.eq(0)).updateMask(r.eq(1)).selfMask()
+  # band where dswe is 3 and apply all masks
+  dswe3 = d.eq(3).rename('dswe3').updateMask(f.eq(0)).updateMask(r.eq(1)).selfMask()
+  #calculate hillshade
+  h = CalcHillShades(image, tile.geometry()).select('hillShade')
+  #calculate hillshadow
+  hs = CalcHillShadows(image, tile.geometry()).select('hillShadow')
+  pixOut = (image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
+            ['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa'])
+            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa', 'ST_CDIST'],
+            ['min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa', 'min_cloud_dist']))
+            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
+            ['max_Aerosol', 'max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa']))
+            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp'],
+            ['Q1_Aerosol', 'Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp']))
+            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp'],
+            ['Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp']))
+            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
+            ['sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa']))
+            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa', 'ST_CDIST'],
+            ['mean_Aerosol','mean_Blue', 'mean_Green', 'mean_Red', 'mean_Nir', 'mean_Swir1', 'mean_Swir2', 'mean_SurfaceTemp', 'mean_temp_qa', 'mean_cloud_dist']))
+            .addBands(image.select(['SurfaceTemp']))
+            .updateMask(d.eq(1)) # only high confidence water
+            .updateMask(r.eq(1)) #1 == no saturated pixels
+            .updateMask(f.eq(0)) #no snow or clouds
+            .addBands(dswe1)
+            .addBands(dswe3)
+            .addBands(hs)
+            .addBands(clouds) 
+            .addBands(a)
+            ) 
+            
+  combinedReducer = (ee.Reducer.median().unweighted().forEachBand(pixOut.select(['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa']))
+  .combine(ee.Reducer.min().unweighted().forEachBand(pixOut.select(['min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa', 'min_cloud_dist'])), sharedInputs = False)
+  .combine(ee.Reducer.max().unweighted().forEachBand(pixOut.select(['max_Aerosol','max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa'])), sharedInputs = False)
+  .combine(ee.Reducer.percentile([25]).unweighted().forEachBand(pixOut.select(['Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp'])), sharedInputs = False)
+  .combine(ee.Reducer.percentile([75]).unweighted().forEachBand(pixOut.select(['Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp'])), sharedInputs = False)
+  .combine(ee.Reducer.stdDev().unweighted().forEachBand(pixOut.select(['sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa'])), sharedInputs = False)
+  .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['mean_Aerosol','mean_Blue', 'mean_Green', 'mean_Red', 'mean_Nir', 'mean_Swir1', 'mean_Swir2', 'mean_SurfaceTemp', 'mean_temp_qa', 'mean_cloud_dist'])), sharedInputs = False)
+  .combine(ee.Reducer.kurtosis().unweighted().forEachBand(pixOut.select(['SurfaceTemp'])), outputPrefix = 'kurt_', sharedInputs = False)
+  .combine(ee.Reducer.count().unweighted().forEachBand(pixOut.select(['dswe1', 'dswe3'])), outputPrefix = 'pCount_', sharedInputs = False)
+  .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['hillShadow', 'clouds', 'medHighAero'])), outputPrefix = 'prop_', sharedInputs = False))
+  # Collect median reflectance and occurance values
+  # Make a cloud score, and get the water pixel count
+  lsout = (pixOut.reduceRegions(lakes, combinedReducer, 30))
+  out = lsout.map(removeGeo)
+  return out
+
+```
+
+#### *maximum_no_of_tasks: Function to monitor running jobs in Earth Engine*
+
+```{python}
+##Function for limiting the max number of tasks sent to
+#earth engine at one time to avoid time out errors
+def maximum_no_of_tasks(MaxNActive, waitingPeriod):
+  ##maintain a maximum number of active tasks
+  time.sleep(10)
+  ## initialize submitting jobs
+  ts = list(ee.batch.Task.list())
+  NActive = 0
+  for task in ts:
+     if ('RUNNING' in str(task) or 'READY' in str(task)):
+         NActive += 1
+  ## wait if the number of current active tasks reach the maximum number
+  ## defined in MaxNActive
+  while (NActive >= MaxNActive):
+    time.sleep(waitingPeriod) # if reach or over maximum no. of active tasks, wait for 2min and check again
+    ts = list(ee.batch.Task.list())
+    NActive = 0
+    for task in ts:
+      if ('RUNNING' in str(task) or 'READY' in str(task)):
+        NActive += 1
+  return()
+
+```
+
+## *Run the GEE functions.*
+
+*Set up a counter and list to keep track of what's been done already. We'll use this in case something is wonky and we need to run again.*
+
+```{python}
+## Set up a counter and a list to keep track of what's been done already
+counter = 0
+done = []    
+```
+
+*You can re-run this and the next chunk and only process the un-processed path row combinations because of the pr loop here, just in case something absolutely devastating happens.*
+
+```{python}
+pr = [i for i in pr if i not in done] #this removes pathrow values that have already been processed
+```
+
+### Run the Reflectance Pull for 8&9 for point locations, whole lakes, and metadata
+
+```{python}
+for tiles in pr:
+  tile = wrs.filterMetadata('PR', 'equals', tiles)
+
+  ## get locs feature ##
+  locs = (locs_feature.filterBounds(tile.geometry())
+    .map(dpBuff))
+  # snip the ls data by the geometry of the lake points    
+  locs_stack = ls89.filterBounds(lakes.geometry()) 
+  # map the refpull function across the 'stack', flatten to an array,
+  locs_out = locs_stack.map(RefPull89).flatten()
+  locs_srname = r.proj+'_point_LS89_C2_SRST_'+str(tiles)+'_v'+str(date.today())
+  locs_dataOut = (ee.batch.Export.table.toDrive(collection = locs_out,
+                                          description = locs_srname,
+                                          folder = r.proj_folder,
+                                          fileFormat = 'csv',
+                                          selectors = ['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa',
+                                          'min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa',
+                                          'max_Aerosol','max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa',
+                                          'Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp',
+                                          'Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp',
+                                          'sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
+                                          'pCount_Aerosol','pCount_Blue', 'pCount_Green', 'pCount_Red', 'pCount_Nir', 'pCount_Swir1', 'pCount_Swir2', 'pCount_SurfaceTemp',
+                                          'kurt_SurfaceTemp', 'prop_clouds','prop_medHighAero','prop_hillShadow','pCount_dswe1', 'pCount_dswe3', 'min_cloud_dist', 'mean_cloud_dist','system:index']))
+  
+  #Check how many existing tasks are running and take a break of 120 secs if it's >25 
+  maximum_no_of_tasks(10, 120)
+  #Send next task.                                        
+  locs_dataOut.start()
+  print('locs extraction for ' + str(tiles) + ' sent to GEE')
+  
+  ## get lakes stack ##
+  # if there is a lakes feature, run the lakes stack.
+  try:
+    lakes = lakes_feat.filterBounds(tile.geometry())
+    # snip the ls data by the geometry of the lake points    
+    lakes_stack = ls89.filterBounds(lakes.geometry()) 
+    # map the refpull function across the 'stack', flatten to an array,
+    lakes_out = lakes_stack.map(RefPull89).flatten()
+    lakes_srname = r.proj+'_lake_LS89_C2_SRST_'+str(tiles)+'_v'+str(date.today())
+    lakes_dataOut = (ee.batch.Export.table.toDrive(collection = lakes_out,
+                                            description = slakes_rname,
+                                            folder = r.proj_folder,
+                                            fileFormat = 'csv',
+                                            selectors = ['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa',
+                                            'min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa',
+                                            'max_Aerosol','max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa',
+                                            'Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp',
+                                            'Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp',
+                                            'sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
+                                            'kurt_SurfaceTemp', 'prop_clouds','prop_medHighAero','prop_hillShadow','pCount_dswe1', 'pCount_dswe3', 'min_cloud_dist', 'mean_cloud_dist','system:index']))
+    
+    #Check how many existing tasks are running and take a break of 120 secs if it's >25 
+    maximum_no_of_tasks(10, 120)
+    #Send next task.                                        
+    lakes_dataOut.start()
+    print('lakes extraction for tile ' + str(tiles) + ' sent to GEE')
+  except NameError:
+    print('No lake feature to extract')
+  
+  ## get metadata ##
+  meta_srname = r.proj+'_metadata_LS89_C2_'+str(tiles)+'_v'+str(date.today())
+  meta_dataOut = (ee.batch.Export.table.toDrive(collection = ls89,
+                                          description = meta_srname,
+                                          folder = r.proj_folder,
+                                          fileFormat = 'csv'))
+  
+  #Check how many existing tasks are running and take a break of 120 secs if it's >25 
+  maximum_no_of_tasks(10, 120)
+  #Send next task.                                        
+  meta_dataOut.start()
+  
+  #advance the counter
+  counter = counter + 1
+  done.append(tiles)
+  print('done with number ' + str(counter) + ', tile ' + str(tiles))
+  
+print('done with all tiles')
+```
+
+That's it! Your GEE tasks are now running [here](https://code.earthengine.google.com/tasks) and the output will show up in your Google Drive.
