@@ -12,7 +12,7 @@ library(sf)
 
 #point to the directory where your location information is stored
 #make sure this path ends with a '/'
-data_dir = '/Users/steeleb/Documents/GitHub/yojoa-rs-secchi/data/'
+data_dir = 'data/'
 ```
 
 ## *Purpose*
@@ -32,8 +32,8 @@ This code requires the user to run some terminal commands. You should be able to
 This step will set up and activate the Python virtual environment using `reticulate` and install the required Python packages. For a more literate version of pySetup, see the .Rmd file of the same name.
 
 ```{r}
-py_env_dir = getwd()
-source(file.path(py_env_dir, 'pySetup.R'))
+py_env_dir = file.path(getwd(), 'landsat_c2')
+source(file.path(py_env_dir, 'literateCode', 'pySetup.R'))
 ```
 
 ### Import python modules.
@@ -86,7 +86,18 @@ proj = 'yojoa'
 proj_folder = 'yojoa'
 ```
 
-### **The remaining code will need to be run, but you won't have to alter any of the code below in order to output files to your Google Drive unless you want to change any of the settings of the tool.**
+### Specify time period of interest
+
+As written below, this script will pull all historical Landsat 4, 5, and 7 images. If you wish to focus the script to a shortened time period, you may adjust these. [Landsat 7's nominal science mission on the WRS2 path ended on April 6, 2022](usgs.gov/landsat-missions/landsat-7).
+
+```{r}
+start_date_457 = '1983-01-01'
+end_date_457 = '2022-04-06'
+```
+
+------------------------------------------------------------------------
+
+## **You shouldn't have to alter any code after this point.**
 
 ------------------------------------------------------------------------
 
@@ -113,53 +124,7 @@ locs_feature = csv_to_eeFeat(r.locs)
 locs_feature.getInfo()
 ```
 
-### Using NHDPlusTools, grab the waterbody polygon by the Latitude and Longitude of a point
-
-Note, that if you have multiple points in any given lake, you will need to find the distinct features in the `all_lakes` multipolygon, which you should be able to do using `distinct`. This chunk saves the polygons in a local file, to be loaded as a python Fiona object in the following section. Note, this will not function outside of the US as it is specific to the NHD Plus data, which has the extent of the US.
-
-```{r}
-wbd_pts = st_as_sf(locs, crs = 'EPSG:4326', coords = c('Longitude', 'Latitude'))
-
-names = locs$name
-
-for(w in 1:length(names)) {
-  aoi_name = wbd_pts[wbd_pts$name == names[w],]
-  lake = get_waterbodies(AOI = aoi_name)
-  if (w == 1) {
-    all_lakes = lake
-  } else {
-    all_lakes = rbind(all_lakes, lake)
-  }
-}
-
-all_lakes = all_lakes %>% select(id, comid, gnis_id:elevation, meandepth:maxdepth)
-
-#save info locally
-write.csv(st_drop_geometry(all_lakes), (file.path(data_dir, 'NHDPlus_stats_lakes.csv')), row.names = F)
-
-all_lakes = all_lakes %>% select(comid, gnis_name)
-
-st_write(all_lakes, file.path(data_dir, 'NHDPlus_lakes.shp'))
-```
-
-### Load polygons as Earth Engine Objects
-
-This chunk creates a Python Fiona object and creates an `ee.FeatureCollection` from those files that can be used later in the script.
-
-```{python}
-# Load the shapefile into a Fiona object
-with fiona.open(os.path.join(dataDir+'NHDPlus_NWlakes.shp')) as src:
-    shapes = [ee.Geometry.Polygon(
-        [[x[0], x[1]] for x in feature['geometry']['coordinates'][0]])
-        for feature in src]
-
-# Create an ee.Feature for each shape
-features = [ee.Feature(shape, {}) for shape in shapes]
-
-# Create an ee.FeatureCollection from the ee.Features
-lakes_feat = ee.FeatureCollection(features)
-
-```
+## Load WRS tiles
 
 Grab WRS tiles (these are the 'path' and 'rows' that Landsat operates on) in descending (daytime) mode for CONUS. We'll use the path-row information to subset data later on to prevent GEE from hanging due to information overload.
 
@@ -183,6 +148,7 @@ def applyScaleFactors(image):
   opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2)
   thermalBands = image.select('ST_B.*').multiply(0.00341802).add(149.0)
   return image.addBands(opticalBands, None, True).addBands(thermalBands, None,True)
+
 ```
 
 #### get image collections
@@ -193,13 +159,16 @@ As written, this script only removes scenes with 95% cloud cover. If you're proc
 #grab images and apply scaling factors
 l7 = (ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
     .map(applyScaleFactors)
-    .filter(ee.Filter.lt('CLOUD_COVER', 95)))
+    .filter(ee.Filter.lt('CLOUD_COVER', 95))
+    .filterDate(r.start_date_457, r.end_date_457))
 l5 = (ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
     .map(applyScaleFactors)
-    .filter(ee.Filter.lt('CLOUD_COVER', 95)))
+    .filter(ee.Filter.lt('CLOUD_COVER', 95))
+    .filterDate(r.start_date_457, r.end_date_457))
 l4 = (ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
     .map(applyScaleFactors)
-    .filter(ee.Filter.lt('CLOUD_COVER', 95)))
+    .filter(ee.Filter.lt('CLOUD_COVER', 95))
+    .filterDate(r.start_date_457, r.end_date_457))
     
 # merge collections by image processing groups
 ls457 = (ee.ImageCollection(l4.merge(l5).merge(l7))
@@ -230,7 +199,7 @@ if len(pr) <= 5 :
 ## Buffer the lake sites
 def dpBuff(i):
   return i.buffer(90) #doing a 90m buffer for general use
-  
+
 ```
 
 #### addRadMask: bitmask for saturated SR pixels:
@@ -257,6 +226,7 @@ def cfMask(image):
     .where(qa.bitwiseAnd(1 << 4), ee.Image(3)) # cloud shadows value 3
     .where(qa.bitwiseAnd(1 << 5), ee.Image(4))) # snow value 4
   return image.addBands(cloudqa)
+
 ```
 
 #### srCloudMask: function to use cloud_qa band
@@ -482,7 +452,7 @@ def RefPull457(image):
   .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['clouds', 'hillShadow'])), outputPrefix = 'prop_', sharedInputs = False))
   # Collect median reflectance and occurance values
   # Make a cloud score, and get the water pixel count
-  lsout = (pixOut.reduceRegions(lakes, combinedReducer, 30))
+  lsout = (pixOut.reduceRegions(extent, combinedReducer, 30))
   out = lsout.map(removeGeo)
   return out
 
@@ -540,6 +510,7 @@ for tiles in pr:
   ## get locs feature ##
   locs = (locs_feature.filterBounds(tile.geometry())
     .map(dpBuff))
+  extent = locs
   # snip the ls data by the geometry of the lake points    
   locs_stack = ls457.filterBounds(locs.geometry()) 
   # map the refpull function across the 'stack', flatten to an array,
@@ -560,36 +531,7 @@ for tiles in pr:
   maximum_no_of_tasks(10, 120)
   #Send next task.                                        
   locs_dataOut.start()
-  print('locs extraction for ' + str(tiles) + ' sent to GEE')
-  
-  ## get lakes stack ##
-  # if there is a lakes feature, run the lakes stack.
-  try:
-    lakes = lakes_feat.filterBounds(tile.geometry())
-    # snip the ls data by the geometry of the lake points    
-    lakes_stack = ls457.filterBounds(lakes.geometry()) 
-    # map the refpull function across the 'stack', flatten to an array,
-    lakes_out = lakes_stack.map(RefPull457).flatten()
-    lakes_srname = r.proj+'_lake_LS457_C2_SRST_'+str(tiles)+'_v'+str(date.today())
-    lakes_dataOut = (ee.batch.Export.table.toDrive(collection = lakes_out,
-                                            description = lakes_srname,
-                                            folder = r.proj_folder,
-                                            fileFormat = 'csv',
-                                            selectors = ['med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa',
-                                            'min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa',
-                                            'max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa',
-                                            'Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp', 
-                                            'Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp', 
-                                            'sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
-                                            'kurt_SurfaceTemp','prop_clouds','prop_hillShadow','pCount_dswe1', 'pCount_dswe3','min_cloud_dist', 'mean_cloud_dist','system:index']))
-    
-    #Check how many existing tasks are running and take a break of 120 secs if it's >25 
-    maximum_no_of_tasks(10, 120)
-    #Send next task.                                        
-    lakes_dataOut.start()
-    print('lakes extraction for tile ' + str(tiles) + ' sent to GEE')
-  except NameError:
-    print('No lake feature to extract')
+  print('locs extraction for tile ' + str(tiles) + ' sent to GEE')
   
   ## get metadata ##
   meta_srname = r.proj+'_metadata_LS457_C2_'+str(tiles)+'_v'+str(date.today())
