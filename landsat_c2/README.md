@@ -1,6 +1,6 @@
 # Landsat C2 Stack Pulls
 
-These scripts function as the primary R-user-friendly version of the Landsat Collection 2 workflows for the ROSS lab. These files are meant to function as building blocks, where you can use some or all to create a dataset.
+These scripts function as the primary R-user-friendly version of the Landsat Collection 2 workflows for the ROSS lab. These files are meant to function as building blocks, where you can use some or all to create a dataset. These scripts have been modified for use on the Yojoa project.
 
 ## Folder/file descriptions:
 
