@@ -1,0 +1,168 @@
+---
+title: "Yojoa LS4-9 Collate/Harmonize"
+author: "B Steele"
+date: "2023-03-03"
+output: html_document
+---
+
+# Purpose
+
+To pull all GEE-derived data into a single dataset with scene-level metadata and save locally.
+
+# Requirements
+
+Link the applicable OneDrive folder to the `data` folder in the primary directory - your link will be different than the one in the folder. To link your data folder (basically a fancy shortcut), follow the instructions below where the code blocks are executed in the terminal. This script also assumes that you have run the Landsat stack files in the 'landsat_c2' folder within this repository and have kept all settings as the initial commit. You will not be able to run this code without having run the scripts within the 'landsat_c2' directory.
+
+> [WINDOWS](https://winaero.com/sync-any-folder-onedrive-windows-10/): 
+>
+>     mklink /j “where\you\want\it” “where\it\lives\on\OneDrive”
+>
+> KATIE\'S EXAMPLE: 
+>
+>     mklink /j "C:\Users\katie\Documents\0_My_Git\nps_water_vulnerability\data" "C:\Users\katie\OneDrive - Colostate\nps_water_vulnerability\data"
+>
+> [MAC OS](https://apple.stackexchange.com/a/259804): 
+>
+>     ln -s “where\it\lives\on\OneDrive” “where\you\want\it”
+>
+> Matt\'s example: 
+>
+>     ln -s "/Users/mbrousil/OneDrive - Colostate/aquasat_v2/data" "/Users/mbrousil/Documents/aquasat_v2/data"
+>
+> **NOTE FOR MAC USERS: This will likely prompt you to enter your password that you use to log on to your computer.**
+
+# Setup
+
+```{r}
+library(googledrive)
+library(tidyverse)
+library(lubridate)
+library(ggthemes)
+library(gghighlight)
+
+data_dir = file.path('data/')
+
+drive_auth()
+1
+```
+
+# Download and collate data and metadata from Drive
+
+Download and collate data and metadata into separate files.
+
+```{r}
+#get a file list
+files = drive_ls(path = 'yojoa')
+
+#function for downloading to data folder
+dr_down = function(filename, fileid){
+  drive_download(file = as_id(fileid), path = file.path(data_dir, 'fromDrive', filename), overwrite = T)
+}
+
+#map over the function to download all files
+map2(files$name, files$id, dr_down)
+
+# create a list of the files in the tmp directory
+list = list.files(file.path(data_dir, 'fromDrive'))
+#add prefix
+list = file.path(data_dir, 'fromDrive', list)
+
+meta_list = list[grepl('meta', list)]
+data_list = list[!grepl('meta', list)]
+
+#read them in and map to a dataframe
+collated_data = map_dfr(data_list, read_csv)
+collated_metadata = map_dfr(meta_list, read_csv)
+
+#clean up workspace
+rm(files)
+```
+
+Reformat the data system:index so that it will play nicely with the metadata and so we pull out the site rowid.
+
+```{r}
+grabRowid = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  unlist(parsed)[str_len]
+}
+
+grabSystemIndex = function(sys_idx){
+  parsed = str_split(sys_idx, '_')
+  str_len = length(unlist(parsed))
+  parsed_sub = unlist(parsed)[1:(str_len-1)]
+  str_flatten(parsed_sub, collapse = '_')
+}
+
+collated_data$rowid = map(collated_data$`system:index`,grabRowid)
+collated_data$`system:index` = map(collated_data$`system:index`, grabSystemIndex)
+
+collated_data$`system:index` = as.character(collated_data$`system:index`)
+```
+
+Grab only the metadata we want
+
+```{r}
+filtered_metadata <- collated_metadata %>% 
+  mutate(IMAGE_QUALITY = if_else(is.na(IMAGE_QUALITY), IMAGE_QUALITY_OLI, IMAGE_QUALITY)) %>% 
+  select(`system:index`, 
+         WRS_PATH, 
+         WRS_ROW, 
+         'mission' = SPACECRAFT_ID, 
+         'date' = DATE_ACQUIRED, 
+         'UTC_time' = SCENE_CENTER_TIME, 
+         CLOUD_COVER,
+         IMAGE_QUALITY, 
+         IMAGE_QUALITY_TIRS, 
+         SUN_AZIMUTH, 
+         SUN_ELEVATION) 
+  
+```
+
+Join the data and metadata.
+
+```{r}
+data = left_join(collated_data, filtered_metadata)
+
+#clean up workspace
+rm(collated_data, collated_metadata)
+
+write.csv(data, file.path(data_dir, paste0('Yojoa_LandsatC2_SRST_collated_v', Sys.Date(), '.csv')))
+```
+
+## Filter scene summaries
+
+Filter:
+
+-   each scene-loaction must have at least 10 pixels in pCount_dswe1 (confident water) contributing to values
+
+-   each scene must have an image quality of 7 or greater
+
+```{r}
+filtered = data %>% 
+  filter(pCount_dswe1 > 10 &
+           IMAGE_QUALITY >= 7)
+```
+
+Read in location info
+
+```{r}
+locs = read.csv(file.path(data_dir, 'location_lat_longs_YOJOA.csv')) %>% 
+  rowid_to_column() %>% 
+  select(rowid, location)
+```
+
+Join filtered data with location info
+
+```{r}
+filtered <- filtered %>% 
+  mutate(rowid = as.integer(rowid),
+         sat = as.character(mission)) %>% 
+  full_join(., locs)
+```
+
+## Export to OneDrive folder
+
+```{r}
+write.csv(filtered, file.path(data_dir, paste0('Yojoa_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
+```
