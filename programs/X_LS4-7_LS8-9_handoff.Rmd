@@ -1,0 +1,95 @@
+---
+title: "Landsat 4-7 reflectance handoff to Landsat 8-9"
+author: "B Steele"
+date: "2023-03-03"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggthemes)
+library(gghighlight)
+```
+
+# Purpose
+
+Landsat 4-7 and 8-9 surface reflectance data go through two different atmospheric corrections (LEDAPS and LaSRC). This script translates Landsat 4-7 reflectance values into a values that are more similar to the reflectance values from Landsat 8-9. This is done through a very simple linear relationship between LS7 and LS9, when there are images obtained on the same day at the same site.
+
+# Read in filtered data
+
+```{r}
+filtered = read.csv('data/Yojoa_LandsatC2_SRST_filtered_v2023-03-03.csv')
+```
+
+# Find days with reflectance data at a location from two missions
+
+Summarize where there is more than one satellite in a given day.
+
+```{r}
+summary = filtered %>% 
+  group_by(date, location) %>% 
+  summarize(n_mission = n(),
+            dup_mission = toString(mission)) 
+
+filtered <- full_join(filtered, summary)
+
+```
+
+Filter for dates with more than 1 satellite mission image, pivot data
+
+```{r}
+handoff_subset = filtered %>% 
+  filter(n_mission>1) %>% 
+  select(date, mission, location, pCount_dswe1, pCount_dswe3, min_cloud_dist, CLOUD_COVER) %>% 
+  pivot_wider(names_from = mission, 
+              values_from = c(pCount_dswe1:CLOUD_COVER))
+
+qa <- filtered %>% filter(n_mission>1) %>% 
+  select(med_Blue:med_Swir2, mission, date, location) %>% 
+  pivot_longer(cols = c(med_Blue:med_Swir2),
+              names_to = 'band',
+              values_to = 'values') %>% 
+  pivot_wider(names_from = mission,
+              values_from = values) %>% 
+  left_join(., handoff_subset)
+
+```
+
+Check relationships relative just to see if anything pops out as egregious...
+
+```{r}
+ggplot(qa, aes(x = LANDSAT_9, y = LANDSAT_7, color = band)) +
+  geom_point() +
+  facet_grid(band ~ .) +
+  theme_bw() +
+  geom_smooth(method = 'lm', se = F) +
+  scale_color_colorblind()
+```
+
+Make linear models for each band
+
+```{r}
+handoff_lm = function(bnd) {
+  lm(qa[qa$band == bnd,]$LANDSAT_7 ~qa[qa$band == bnd,]$LANDSAT_9)
+}
+
+lm_blue = handoff_lm('med_Blue')
+summary(lm_blue)
+
+lm_green = handoff_lm('med_Green')
+summary(lm_green)
+
+lm_nir = handoff_lm('med_Nir')
+summary(lm_nir)
+
+lm_red = handoff_lm('med_Red')
+summary(lm_red)
+
+lm_sw1 = handoff_lm('med_Swir1')
+summary(lm_sw1)
+
+lm_sw2 = handoff_lm('med_Swir2')
+summary(lm_sw2)
+```
+
+The above linear models can be applied to the LS4-7 data to create a more interoperable dataset with the 8-9 data. Note, this assumes that LS9 is more accurate than LS7, while this is true by atmospheric correction indices, note that it will likely create more negative values due to the higher frequency of negative reflectance values in the LS8&9 datasets.

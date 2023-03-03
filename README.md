@@ -1,1 +1,1 @@
-# yojoa-rs-secchi
+# Yojoa Remote Sensing - Secchi
