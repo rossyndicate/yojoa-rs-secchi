@@ -17,7 +17,7 @@ Link the applicable OneDrive folder to the `data` folder in the primary director
 >
 >     mklink /j “where\you\want\it” “where\it\lives\on\OneDrive”
 >
-> KATIE\'S EXAMPLE: 
+> KATIE'S EXAMPLE: 
 >
 >     mklink /j "C:\Users\katie\Documents\0_My_Git\nps_water_vulnerability\data" "C:\Users\katie\OneDrive - Colostate\nps_water_vulnerability\data"
 >
@@ -25,7 +25,7 @@ Link the applicable OneDrive folder to the `data` folder in the primary director
 >
 >     ln -s “where\it\lives\on\OneDrive” “where\you\want\it”
 >
-> Matt\'s example: 
+> Matt's example: 
 >
 >     ln -s "/Users/mbrousil/OneDrive - Colostate/aquasat_v2/data" "/Users/mbrousil/Documents/aquasat_v2/data"
 >
@@ -98,6 +98,10 @@ collated_data$rowid = map(collated_data$`system:index`,grabRowid)
 collated_data$`system:index` = map(collated_data$`system:index`, grabSystemIndex)
 
 collated_data$`system:index` = as.character(collated_data$`system:index`)
+
+#drop the pCount columns that are blank (this is just an artefact of the workflow)
+collated_data <- collated_data %>% 
+  select(-c(pCount_Aerosol:pCount_SurfaceTemp))
 ```
 
 Grab only the metadata we want
@@ -137,6 +141,8 @@ Filter:
 -   each scene-loaction must have at least 10 pixels in pCount_dswe1 (confident water) contributing to values
 
 -   each scene must have an image quality of 7 or greater
+
+There are likely other filters you will want to apply, but these are the minimal filters.
 
 ```{r}
 filtered = data %>% 
