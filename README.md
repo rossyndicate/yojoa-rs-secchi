@@ -11,13 +11,13 @@ A few notes about the collated/filtered/matchup data sets:
 
 -   The surface temp data doesn't look great for Yojoa. There are likely two main reasons for this:
 
-    1) [Landsat 9 TIRS band has some anomolous data](https://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-datahttps://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-data) being reported at this time
+    1) [Landsat 9 TIRS band has some anomalous data](https://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-datahttps://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-data) being reported at this time
 
     2) The surface temperature product validation is completed almost entirely with buoy data from North America in oceanic environments and little rigorous validation of site-specific data has been done (see also [Herrick and Steele, et al. 2023](https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecs2.4357))
 
 -   Filters applied: in 1_RS_collate_harmonize.Rmd, we've done the minimum filtering in 'Filter scene summaries' (dswe1 must be \> 10, IMAGE_QUALITY \>= 7). We may suggest to update this with new filters in the near future.
 
--   We did not apply any Landsat 4-7/Landsat 8-9 handoff models. In the script X_LS_4-7_LS8-9_handoff.Rmd in the 'programs' subdirectory, we pull the 7/9 overlaps so you can easily apply if you wish to. Your decisions here may have implications for your model:
+-   We did not apply any Landsat 4-7/Landsat 8-9 handoff models. In the script X_LS_4-7_LS8-9_handoff.Rmd in the 'programs' subdirectory, we pull the 7/9 overlaps so you can easily apply if you wish to. But a few notes that may mean you don't have to:
 
     -   if you have enough data points to do 4-7 algorithm development separately from 8-9, you should. The Rs value coming from the two differing atmospheric correction methods can be pretty different.
 
