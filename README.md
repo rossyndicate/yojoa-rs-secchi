@@ -1,7 +1,6 @@
 # Yojoa Remote Sensing - Secchi
 
-This project is led by Jemma Fadum and is based on the work she did in her dissertation, 'INTRA AND INTER-ANNUAL PATTERNS IN LAKE YOJOA, HONDURAS: DISENTANGLING
-BIOGEOCHEMICAL DRIVERS OF A TROPICAL MONOMICTIC LAKE ECOSYSTEM'. This repository of code is the start of a re-analysis of the results presented in chapter 5, 'REMOTE SENSING OF TROPHIC STATE IN LAKE YOJOA; A SUMMARY OF FUTURE OUTLOOKS AND OPPORTUNITIES', but updated to include Landsat missions 4-7 in addition to Landsat 8 & 9.
+This project is led by Jemma Fadum and is based on the work she did in her dissertation, 'INTRA AND INTER-ANNUAL PATTERNS IN LAKE YOJOA, HONDURAS: DISENTANGLING BIOGEOCHEMICAL DRIVERS OF A TROPICAL MONOMICTIC LAKE ECOSYSTEM'. This repository of code is the start of a re-analysis of the results presented in chapter 5, 'REMOTE SENSING OF TROPHIC STATE IN LAKE YOJOA; A SUMMARY OF FUTURE OUTLOOKS AND OPPORTUNITIES', but updated to include Landsat missions 4-7 in addition to Landsat 8 & 9.
 
 The Landsat record was last acquired in February of 2023 by B. Steele using the code in the subdirectory 'landsat_c2'.
 
@@ -11,17 +10,13 @@ A few notes about the collated/filtered/matchup data sets:
 
 -   The surface temp data doesn't look great for Yojoa. There are likely two main reasons for this:
 
-    1) [Landsat 9 TIRS band has some anomalous data](https://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-datahttps://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-data) being reported at this time
+    1)  [Landsat 9 TIRS band has some anomalous data](https://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-datahttps://www.usgs.gov/landsat-missions/news/recent-landsat-9-tirs-anomaly-pauses-processing-new-landsat-9-data) being reported at this time
 
-    2) The surface temperature product validation is completed almost entirely with buoy data from North America in oceanic environments and little rigorous validation of site-specific data has been done (see also [Herrick and Steele, et al. 2023](https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecs2.4357))
+    2)  The surface temperature product validation is completed almost entirely with buoy data from North America in oceanic environments and little rigorous validation of site-specific data has been done (see also [Herrick and Steele, et al. 2023](https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecs2.4357))
 
 -   Filters applied: in 1_RS_collate_harmonize.Rmd, we've done the minimum filtering in 'Filter scene summaries' (dswe1 must be \> 10, IMAGE_QUALITY \>= 7). We may suggest to update this with new filters in the near future.
 
--   We did not apply any Landsat 4-7/Landsat 8-9 handoff models. In the script X_LS_4-7_LS8-9_handoff.Rmd in the 'programs' subdirectory, we pull the 7/9 overlaps so you can easily apply if you wish to. But a few notes that may mean you don't have to:
-
-    -   if you have enough data points to do 4-7 algorithm development separately from 8-9, you should. The Rs value coming from the two differing atmospheric correction methods can be pretty different.
-
-    -   on a quick look, there are over 200 matchups on Landsat 7, and you could, theoretically, apply that model to Landsat 4&5 if it was not over fit, with the caveat that the bands are not precisely the same. Band 7 and Band 4 are *slightly* different between 4/5 and 7. [Click here for band wavelengh designations](https://www.usgs.gov/faqs/what-are-band-designations-landsat-satellites).
+-   We did not apply any Landsat 4-7/Landsat 8-9 handoff models. In the script X_LS_4-7_LS8-9_handoff.Rmd, we begin investigating that, but this will need additional work. See [Topp, et al 2021](https://iopscience.iop.org/article/10.1088/1748-9326/abf002#artAbst).
 
 # Folders
 
@@ -44,7 +39,7 @@ These column names apply to the following files in the data folder:
 `Yojoa_Landsat_C2_SRST_filtered_v2023-03-03.csv` : suggested file for creating the matchups
 
 | Column name (or prefix, suffix) | Definition                                                                                                                                                                                                                                                                                         | Missions                                            | Units                          | Data Source                   | Use Case                     |
-|------------|-----------------|---------|---------|---------------|------------|
+|------------|------------|------------|------------|------------|------------|
 | \*\_Blue                        | Blue band reflectance                                                                                                                                                                                                                                                                              | all                                                 | unitless                       | GEE location-specific reducer | Algorithm development, QA    |
 | \*\_Green                       | Green band reflectance                                                                                                                                                                                                                                                                             | all                                                 | unitless                       | GEE location-specific reducer | Algorithm development, QA    |
 | \*\_Red                         | Red band reflectance                                                                                                                                                                                                                                                                               | all                                                 | unitless                       | GEE location-specific reducer | Algorithm development, QA    |
