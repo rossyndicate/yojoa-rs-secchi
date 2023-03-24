@@ -23,7 +23,7 @@ secchi = read_xlsx('data/Secchi_completedataset.xlsx') %>%
   mutate(date = as.Date(date)) 
 str(secchi)
 
-ls = read.csv('data/Yojoa_LandsatC2_SRST_filtered_v2023-03-03.csv') %>% 
+ls = read.csv('data/Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv') %>% 
   mutate(date = as.Date(date))
 str(ls)
 ```
@@ -41,21 +41,57 @@ secchi = secchi %>%
   rename(obs_date = date) %>% 
   as_tbl_time(secchi, index = obs_date) %>% 
   arrange(obs_date) 
-ls = as_tbl_time(ls, index = date) %>% 
+ls4 = ls %>% 
+  filter(mission == 'LANDSAT_4') %>% 
+  as_tbl_time(., index = date) %>% 
+  arrange(date)
+ls5 = ls %>% 
+  filter(mission == 'LANDSAT_5') %>% 
+  as_tbl_time(., index = date) %>% 
+  arrange(date)
+ls7 = ls %>% 
+  filter(mission == 'LANDSAT_7') %>% 
+  as_tbl_time(., index = date) %>% 
+  arrange(date)
+ls8 = ls %>% 
+  filter(mission == 'LANDSAT_8') %>% 
+  as_tbl_time(., index = date) %>% 
+  arrange(date)
+ls9 = ls %>% 
+  filter(mission == 'LANDSAT_9') %>% 
+  as_tbl_time(., index = date) %>% 
   arrange(date)
 
+
 filterInWindow = function(window, dt) {
-  ls %>% 
+  L4 = ls4 %>% 
     filter_time(dt-days(window) ~ dt+days(window)) %>% 
     mutate(obs_date = dt) %>% 
-    inner_join(secchi, .)
+    merge(secchi, .)
+  L5 = ls5 %>% 
+    filter_time(dt-days(window) ~ dt+days(window)) %>% 
+    mutate(obs_date = dt) %>% 
+    merge(secchi, .)
+  L7 =ls7 %>% 
+    filter_time(dt-days(window) ~ dt+days(window)) %>% 
+    mutate(obs_date = dt) %>% 
+    merge(secchi, .)
+  L8 =ls8 %>% 
+    filter_time(dt-days(window) ~ dt+days(window)) %>% 
+    mutate(obs_date = dt) %>% 
+    merge(secchi, .)
+  L9 = ls9 %>% 
+    filter_time(dt-days(window) ~ dt+days(window)) %>% 
+    mutate(obs_date = dt) %>% 
+    merge(secchi, .)
+  rbind(L4, L5) %>% rbind(., L7) %>% rbind(.,L8) %>% rbind(.,L9)
 }
 
+# these take a few minutes because of the inner join.
 oneDay_matchups = map2_dfr(1, as.Date(secchi$obs_date), filterInWindow)
 twoDay_matchups = map2_dfr(2, as.Date(secchi$obs_date), filterInWindow)
 threeDay_matchups = map2_dfr(3, as.Date(secchi$obs_date), filterInWindow)
 fiveDay_matchups = map2_dfr(5, as.Date(secchi$obs_date), filterInWindow)
-sevenDay_matchups = map2_dfr(7, as.Date(secchi$obs_date), filterInWindow)
 ```
 
 ## Export matchups
@@ -63,4 +99,7 @@ sevenDay_matchups = map2_dfr(7, as.Date(secchi$obs_date), filterInWindow)
 ```{r}
 write.csv(sameDay_matchups, 'data/sameDay_LS-Secchi_matchups.csv', row.names = F)
 write.csv(oneDay_matchups, 'data/oneDay_LS-Secchi_matchups.csv', row.names = F)
+write.csv(twoDay_matchups, 'data/twoDay_LS-Secchi_matchups.csv', row.names = F)
+write.csv(threeDay_matchups, 'data/threeDay_LS-Secchi_matchups.csv', row.names = F)
+write.csv(fiveDay_matchups, 'data/fiveDay_LS-Secchi_matchups.csv', row.names = F)
 ```
