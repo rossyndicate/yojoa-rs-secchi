@@ -92,6 +92,13 @@ oneDay_matchups = map2_dfr(1, as.Date(secchi$obs_date), filterInWindow)
 twoDay_matchups = map2_dfr(2, as.Date(secchi$obs_date), filterInWindow)
 threeDay_matchups = map2_dfr(3, as.Date(secchi$obs_date), filterInWindow)
 fiveDay_matchups = map2_dfr(5, as.Date(secchi$obs_date), filterInWindow)
+
+#remove the dupes (why these are happening I honestly don't know.)
+oneDay_matchups=oneDay_matchups[!duplicated(oneDay_matchups),]
+twoDay_matchups=twoDay_matchups[!duplicated(twoDay_matchups),]
+threeDay_matchups=threeDay_matchups[!duplicated(threeDay_matchups),]
+fiveDay_matchups=fiveDay_matchups[!duplicated(fiveDay_matchups),]
+
 ```
 
 ## Export matchups
