@@ -18,7 +18,7 @@ Landsat 4-7 and 8-9 surface reflectance data go through two different atmospheri
 # Read in filtered data
 
 ```{r}
-filtered = read.csv('data/Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv')
+filtered = read.csv('data/upstreamRS/Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv')
 ```
 
 # Find days with reflectance data at a location from two missions

@@ -40,7 +40,10 @@ library(lubridate)
 library(ggthemes)
 library(gghighlight)
 
-data_dir = file.path('data/')
+dump_dir = file.path('data/fromDrive/')
+is_dir = file.file.path('data/in-situ/')
+coll_dir = file.path('data/upstreamRS/')
+match_dir = file.path('data/matchups/')
 
 drive_auth()
 1
@@ -56,16 +59,16 @@ files = drive_ls(path = 'yojoa')
 
 #function for downloading to data folder
 dr_down = function(filename, fileid){
-  drive_download(file = as_id(fileid), path = file.path(data_dir, 'fromDrive', filename), overwrite = T)
+  drive_download(file = as_id(fileid), path = file.path(dump_dir, filename), overwrite = T)
 }
 
 #map over the function to download all files
 map2(files$name, files$id, dr_down)
 
 # create a list of the files in the tmp directory
-list = list.files(file.path(data_dir, 'fromDrive'))
+list = list.files(file.path(dump_dir))
 #add prefix
-list = file.path(data_dir, 'fromDrive', list)
+list = file.path(dump_dir, list)
 
 meta_list = list[grepl('meta', list)]
 data_list = list[!grepl('meta', list)]
@@ -132,7 +135,7 @@ data = left_join(collated_data, filtered_metadata) %>%
 #clean up workspace
 rm(collated_data, collated_metadata)
 
-write.csv(data, file.path(data_dir, paste0('Yojoa_LandsatC2_SRST_collated_v', Sys.Date(), '.csv')))
+write.csv(data, file.path(coll_dir, paste0('Yojoa_LandsatC2_SRST_collated_v', Sys.Date(), '.csv')))
 ```
 
 ## Filter scene summaries
@@ -154,7 +157,7 @@ filtered = data %>%
 Read in location info
 
 ```{r}
-locs = read.csv(file.path(data_dir, 'location_lat_longs_YOJOA.csv')) %>% 
+locs = read.csv(file.path(is_dir, 'location_lat_longs_YOJOA.csv')) %>% 
   rowid_to_column() %>% 
   select(rowid, location)
 ```
@@ -171,5 +174,5 @@ filtered <- filtered %>%
 ## Export to OneDrive folder
 
 ```{r}
-write.csv(filtered, file.path(data_dir, paste0('Yojoa_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
+write.csv(filtered, file.path(coll_dir, paste0('Yojoa_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
 ```

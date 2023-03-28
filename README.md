@@ -6,7 +6,7 @@ The Landsat record was last acquired in February of 2023 by B. Steele using the 
 
 # Folders
 
-`data` this is a symlink folder that houses all of the data referenced in these scripts. See notes at the bottoms of this readme for creating your own symlink folder.
+`data` this is a symlink folder that houses all of the data referenced in these scripts. See notes at the bottoms of this readme for creating your own symlink folder. The subdirectories of this folder should read: fromDrive, upstreamRS, matchups, models, output, in-situ.
 
 `programs` contains the scripts that perform post-processing and collation of the GEE ouput from the `landsat_c2` folder. 
 

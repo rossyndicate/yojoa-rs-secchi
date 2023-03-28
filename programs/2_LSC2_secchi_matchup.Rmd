@@ -10,6 +10,11 @@ library(tidyverse)
 library(readxl)
 library(lubridate)
 library(tibbletime)
+
+is_dir = 'data/in-situ/'
+coll_dir = 'data/upstreamRS/'
+match_dir = 'data/matchups/'
+
 ```
 
 # Purpose
@@ -19,11 +24,11 @@ To create a match up database of the Landsat record and historical Secchi data f
 # Bring in the data
 
 ```{r}
-secchi = read_xlsx('data/Secchi_completedataset.xlsx') %>% 
+secchi = read_xlsx(file.path(is_dir, 'Secchi_completedataset.xlsx')) %>% 
   mutate(date = as.Date(date)) 
 str(secchi)
 
-ls = read.csv('data/Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv') %>% 
+ls = read.csv(file.path(coll_dir, 'Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv')) %>% 
   mutate(date = as.Date(date))
 str(ls)
 ```
@@ -104,9 +109,9 @@ fiveDay_matchups=fiveDay_matchups[!duplicated(fiveDay_matchups),]
 ## Export matchups
 
 ```{r}
-write.csv(sameDay_matchups, 'data/sameDay_LS-Secchi_matchups.csv', row.names = F)
-write.csv(oneDay_matchups, 'data/oneDay_LS-Secchi_matchups.csv', row.names = F)
-write.csv(twoDay_matchups, 'data/twoDay_LS-Secchi_matchups.csv', row.names = F)
-write.csv(threeDay_matchups, 'data/threeDay_LS-Secchi_matchups.csv', row.names = F)
-write.csv(fiveDay_matchups, 'data/fiveDay_LS-Secchi_matchups.csv', row.names = F)
+write.csv(sameDay_matchups, file.path(match_dir, 'sameDay_LS-Secchi_matchups.csv'), row.names = F)
+write.csv(oneDay_matchups, file.path(match_dir, 'oneDay_LS-Secchi_matchups.csv'), row.names = F)
+write.csv(twoDay_matchups, file.path(match_dir, 'twoDay_LS-Secchi_matchups.csv'), row.names = F)
+write.csv(threeDay_matchups, file.path(match_dir, 'threeDay_LS-Secchi_matchups.csv'), row.names = F)
+write.csv(fiveDay_matchups, file.path(match_dir, 'fiveDay_LS-Secchi_matchups.csv'), row.names = F)
 ```
