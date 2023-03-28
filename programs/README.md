@@ -4,6 +4,8 @@ Script 1_RS_collate_harmonize.Rmd assumes that you have run the Landsat stack fi
 
 -   Filters applied: in 1_RS_collate_harmonize.Rmd, we've done the minimum filtering in 'Filter scene summaries' (dswe1 must be \> 10, IMAGE_QUALITY \>= 7). We may suggest to update this with new filters in the near future.
 
+-   The files sameDay_LS-Secchi_matchups.csv, oneDay..., twoDay..., threeDay..., fiveDay... found in the data folder were created in the script 2_LSC2_secchi_matchup.Rmd 
+
 -   We did not apply any Landsat 4-7/Landsat 8-9 handoff models. In the script X_LS_4-7_LS8-9_handoff.Rmd, we begin investigating that, but this will need additional work. See [Topp, et al 2021](https://iopscience.iop.org/article/10.1088/1748-9326/abf002#artAbst).
 
 # Data set column definitions, units, sources
