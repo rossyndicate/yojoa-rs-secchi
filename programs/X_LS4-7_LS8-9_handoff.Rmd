@@ -1,95 +1,144 @@
 ---
 title: "Landsat 4-7 reflectance handoff to Landsat 8-9"
 author: "B Steele"
-date: "2023-03-03"
+date: "2023-03-28"
 output: html_document
 ---
 
 ```{r}
 library(tidyverse)
-library(ggthemes)
-library(gghighlight)
 ```
 
 # Purpose
 
-Landsat 4-7 and 8-9 surface reflectance data go through two different atmospheric corrections (LEDAPS and LaSRC). This script translates Landsat 4-7 reflectance values into a values that are more similar to the reflectance values from Landsat 8-9. This is done through a very simple linear relationship between LS7 and LS9, when there are images obtained on the same day at the same site.
+Landsat 4-7 and 8-9 surface reflectance data go through two different atmospheric corrections (LEDAPS and LaSRC). Additionally, each band wavelength can vary between missions. This script uses an adapted version of the methods in Topp, et al. 2021 to correct for each satellite handoff, correction to LS 7 values.
 
 # Read in filtered data
 
+These data were filtered such that dswe1 >= 10 and image quality was >= 7 in the program `1_RS_collate_harmonize.Rmd`
+
 ```{r}
-filtered = read.csv('data/upstreamRS/Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv')
+filtered = read.csv('data/upstreamRS/Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv') %>% 
+  mutate(date = as.Date(date))
 ```
 
-# Find days with reflectance data at a location from two missions
+# Build functions for each overlap
 
-Summarize where there is more than one satellite in a given day.
-
-```{r}
-summary = filtered %>% 
-  group_by(date, location) %>% 
-  summarize(n_mission = n(),
-            dup_mission = toString(mission)) 
-
-filtered <- full_join(filtered, summary)
-
-```
-
-Filter for dates with more than 1 satellite mission image, pivot data
+Here, I adapted the Topp version of the functions to use fewer percentile data points to more closely reflect the limited number of images/data points in this dataset. This adaptation was made in the line reading `quantile(., seq(0.05, 0.95, 0.05))`, which replaces the original`quantile(., seq(0.05, 0.95, 0.05))` for the Landsat 5-7 and Landsat 7-8 handoffs. For Landsat 7-9, I adjusted the quantiles further to `quantile(., seq(0.1, 0.9, 0.1))` as to not oversample the limited data. I also adjusted the filter to align with deployment and decommission dates for each sensor. Additionally, I added code to display each polynomial regression and provide some summary information for each handoff per band.
 
 ```{r}
-handoff_subset = filtered %>% 
-  filter(n_mission>1) %>% 
-  select(date, mission, location, pCount_dswe1, pCount_dswe3, min_cloud_dist, CLOUD_COVER) %>% 
-  pivot_wider(names_from = mission, 
-              values_from = c(pCount_dswe1:CLOUD_COVER))
+## Create polynomial functions based on the 1-99th percentile of each sensor
+## for overlapping periods
+lm75 <- function(band){
+  print(paste0(band, ' model summary'))
+  y <- filtered %>% 
+    filter(date > as.Date('1999-04-15'), date < as.Date('2013-06-05'), sat == 'LANDSAT_7') 
+  print(paste0('LS7 scenes: ', length(unique(y$system.index)), ' values: ', nrow(y)))
+  y <- y %>% 
+    .[,band] %>% 
+    quantile(., seq(.05,.95, .05))
+  
+  x = filtered %>% 
+    filter(date > as.Date('1999-04-15'), date < as.Date('2013-06-05'), sat == 'LANDSAT_5') 
+  print(paste0('LS5 scenes: ', length(unique(x$system.index)), ' values: ', nrow(x)))
+  x = x %>% 
+    .[,band] %>% 
+    quantile(., seq(.05,.95, .05))
+  
+  lm <- lm(y~poly(x, 2, raw = T))
+  print(summary(lm))
+  plot(y~x, 
+       main = paste0(band, ' LS5-7 handoff'), 
+       ylab = '0.05 Quantile Values for LS7 Rrs', 
+       xlab = '0.05 Quantile Values for LS5 Rrs')
+  lines(sort(x),
+        fitted(lm)[order(x)],
+        col = "red",
+        type = "l")
+  
+  df <- tibble(band = band, intercept = lm$coefficients[[1]], B1 = lm$coefficients[[2]], B2 = lm$coefficients[[3]])
+  return(df)
+}
+lm78 <- function(band){
+  print(paste0(band, ' model summary'))
+  y <- filtered %>% 
+    filter(date > as.Date('2013-02-11'), date < as.Date('2022-04-16'), sat == 'LANDSAT_7') 
+  print(paste0('LS7 scenes: ', length(unique(y$system.index)), ' values: ', nrow(y)))
+  y <- y %>% 
+    .[,band] %>% 
+    quantile(., seq(.05,.95, .05))
 
-qa <- filtered %>% filter(n_mission>1) %>% 
-  select(med_Blue:med_Swir2, mission, date, location) %>% 
-  pivot_longer(cols = c(med_Blue:med_Swir2),
-              names_to = 'band',
-              values_to = 'values') %>% 
-  pivot_wider(names_from = mission,
-              values_from = values) %>% 
-  left_join(., handoff_subset)
+  x = filtered %>% 
+    filter(date > as.Date('2013-02-11'), date < as.Date('2022-04-16'), sat == 'LANDSAT_8') 
+  print(paste0('LS8 scenes: ', length(unique(x$system.index)), ' values: ', nrow(x)))
+  x = x %>% 
+    .[,band] %>% 
+    quantile(., seq(.05,.95, .05))
 
-```
+  lm <- lm(y~poly(x, 2, raw = T))
+  print(summary(lm))
+  plot(y~x, main = paste0(band, ' LS7-8 handoff'), 
+       ylab = '0.05 Quantile Values for LS7 Rrs', 
+       xlab = '0.05 Quantile Values for LS8 Rrs')
+  lines(sort(x),
+        fitted(lm)[order(x)],
+        col = "red",
+        type = "l")
+  
+  df <- tibble(band = band, intercept = lm$coefficients[[1]], B1 = lm$coefficients[[2]], B2 = lm$coefficients[[3]])
+  return(df)
+}
+lm79 <- function(band){
+  print(paste0(band, ' model summary'))
+  y <- filtered %>% 
+    filter(date > as.Date('2021-09-27'), date < as.Date('2022-04-16'), sat == 'LANDSAT_7') 
+  print(paste0('LS7 scenes: ', length(unique(y$system.index)), ' values: ', nrow(y)))
+  y <- y %>% 
+    .[,band] %>% 
+    quantile(., seq(0.1, 0.9, 0.1))
 
-Check relationships relative just to see if anything pops out as egregious...
+  x = filtered %>% 
+    filter(date > as.Date('2021-09-27'), date < as.Date('2022-04-16'), sat == 'LANDSAT_9') 
+  print(paste0('LS9 scenes: ', length(unique(x$system.index)), ' values: ', nrow(x)))
+  x = x %>% 
+    .[,band] %>% 
+    quantile(., seq(0.1, 0.9, 0.1))
 
-```{r}
-ggplot(qa, aes(x = LANDSAT_9, y = LANDSAT_7, color = band)) +
-  geom_point() +
-  facet_grid(band ~ .) +
-  theme_bw() +
-  geom_smooth(method = 'lm', se = F) +
-  scale_color_colorblind()
-```
-
-Make linear models for each band
-
-```{r}
-handoff_lm = function(bnd) {
-  lm(qa[qa$band == bnd,]$LANDSAT_7 ~qa[qa$band == bnd,]$LANDSAT_9)
+  lm <- lm(y~poly(x, 2, raw = T))
+  print(summary(lm))
+  plot(y~x, main = paste0(band, ' LS7-9 handoff'), 
+       ylab = '0.1 Quantile Values for LS7 Rrs', 
+       xlab = '0.1 Quantile Values for LS9 Rrs')
+  lines(sort(x),
+        fitted(lm)[order(x)],
+        col = "red",
+        type = "l")
+  
+  df <- tibble(band = band, intercept = lm$coefficients[[1]], B1 = lm$coefficients[[2]], B2 = lm$coefficients[[3]])
+  return(df)
 }
 
-lm_blue = handoff_lm('med_Blue')
-summary(lm_blue)
-
-lm_green = handoff_lm('med_Green')
-summary(lm_green)
-
-lm_nir = handoff_lm('med_Nir')
-summary(lm_nir)
-
-lm_red = handoff_lm('med_Red')
-summary(lm_red)
-
-lm_sw1 = handoff_lm('med_Swir1')
-summary(lm_sw1)
-
-lm_sw2 = handoff_lm('med_Swir2')
-summary(lm_sw2)
 ```
 
-The above linear models can be applied to the LS4-7 data to create a more interoperable dataset with the 8-9 data. Note, this assumes that LS9 is more accurate than LS7, while this is true by atmospheric correction indices, note that it will likely create more negative values due to the higher frequency of negative reflectance values in the LS8&9 datasets.
+## Run the functions
+Now, we can run the functions and look at the data by correction and band
+
+```{r}
+## Run the functions and look at the resulting corrections
+bands <-  c('med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1','med_Swir2')
+funcs.8 <- bands %>% map_dfr(lm78) %>% mutate(SatCorr = 'l8 to l7')
+funcs.5 <- bands %>% map_dfr(lm75)%>% mutate(SatCorr = 'l5 to l7')
+funcs.9 <- bands %>% map_dfr(lm79)%>% mutate(SatCorr = 'l9 to l7')
+
+allfuns = full_join(funcs.5, funcs.8) %>% 
+  full_join(., funcs.9)
+```
+
+## Landsat 4 -7 Handoff
+
+While there is technically overlap between the LS4 and LS7 mission (1999-2001), there are no scenes from LS4 that are available for that time from Yojoa:
+
+```{r}
+filtered %>% filter(sat == 'LANDSAT_4') %>% distinct(system.index)
+```
+
