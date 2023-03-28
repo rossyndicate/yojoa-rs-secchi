@@ -12,13 +12,19 @@ Script 1_RS_collate_harmonize.Rmd assumes that you have run the Landsat stack fi
 
 These column names apply to the following files in the data folder:
 
-`oneDay_LS-Secchi_matchups.csv`
+* `sameDay_LS-Secchi_matchups.csv`
 
-`sameDay_LS-Secchi_matchups.csv`
+* `oneDay_LS-Secchi_matchups.csv`
 
-`Yojoa_Landsat_C2_SRST_collated_v2023-03-03.csv` : all data from the Landsat C2 scripts, no filters applied
+* `twoDay_LS-Secchi_matchups.csv`
 
-`Yojoa_Landsat_C2_SRST_filtered_v2023-03-03.csv` : suggested file for creating the matchups
+* `threeDay_LS-Secchi_matchups.csv`
+
+* `fiveDay_LS-Secchi_matchups.csv`
+
+* `Yojoa_Landsat_C2_SRST_collated_v2023-03-03.csv` : all data from the Landsat C2 scripts, no filters applied
+
+* `Yojoa_Landsat_C2_SRST_filtered_v2023-03-03.csv` : suggested file for creating the matchups
 
 | Column name (or prefix, suffix) | Definition                                                                                                                                                                                                                                                                                         | Missions                                            | Units                          | Data Source                   | Use Case                     |
 |------------|------------|------------|------------|------------|------------|
