@@ -24,12 +24,15 @@ To create a match up database of the Landsat record and historical Secchi data f
 # Bring in the data
 
 ```{r}
-secchi = read_xlsx(file.path(is_dir, 'Secchi_completedataset.xlsx')) %>% 
-  mutate(date = as.Date(date)) 
+secchi = read.csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
+  mutate(date = as.Date(date, format = '%m/%d/%y'))  
 str(secchi)
+#there are duplicated records in here, remove them
+secchi = secchi[!duplicated(secchi),]
 
 ls = read.csv(file.path(coll_dir, 'Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv')) %>% 
-  mutate(date = as.Date(date))
+  mutate(date = as.Date(date)) %>% 
+  select(-rowid)
 str(ls)
 ```
 
@@ -42,76 +45,29 @@ sameDay_matchups = inner_join(secchi, ls)
 And now we can move out from there:
 
 ```{r}
-secchi = secchi %>% 
-  rename(obs_date = date) %>% 
-  as_tbl_time(secchi, index = obs_date) %>% 
-  arrange(obs_date) 
-ls4 = ls %>% 
-  filter(mission == 'LANDSAT_4') %>% 
-  as_tbl_time(., index = date) %>% 
-  arrange(date)
-ls5 = ls %>% 
-  filter(mission == 'LANDSAT_5') %>% 
-  as_tbl_time(., index = date) %>% 
-  arrange(date)
-ls7 = ls %>% 
-  filter(mission == 'LANDSAT_7') %>% 
-  as_tbl_time(., index = date) %>% 
-  arrange(date)
-ls8 = ls %>% 
-  filter(mission == 'LANDSAT_8') %>% 
-  as_tbl_time(., index = date) %>% 
-  arrange(date)
-ls9 = ls %>% 
-  filter(mission == 'LANDSAT_9') %>% 
-  as_tbl_time(., index = date) %>% 
-  arrange(date)
+#force join by location (of all possible pairs by location)
+over_match = full_join(ls, secchi, by = 'location') %>% 
+  mutate(date_diff = obs_date-date) #calculate the time difference
 
-
-filterInWindow = function(window, dt) {
-  L4 = ls4 %>% 
-    filter_time(dt-days(window) ~ dt+days(window)) %>% 
-    mutate(obs_date = dt) %>% 
-    merge(secchi, .)
-  L5 = ls5 %>% 
-    filter_time(dt-days(window) ~ dt+days(window)) %>% 
-    mutate(obs_date = dt) %>% 
-    merge(secchi, .)
-  L7 =ls7 %>% 
-    filter_time(dt-days(window) ~ dt+days(window)) %>% 
-    mutate(obs_date = dt) %>% 
-    merge(secchi, .)
-  L8 =ls8 %>% 
-    filter_time(dt-days(window) ~ dt+days(window)) %>% 
-    mutate(obs_date = dt) %>% 
-    merge(secchi, .)
-  L9 = ls9 %>% 
-    filter_time(dt-days(window) ~ dt+days(window)) %>% 
-    mutate(obs_date = dt) %>% 
-    merge(secchi, .)
-  rbind(L4, L5) %>% rbind(., L7) %>% rbind(.,L8) %>% rbind(.,L9)
-}
-
-# these take a few minutes because of the inner join.
-oneDay_matchups = map2_dfr(1, as.Date(secchi$obs_date), filterInWindow)
-twoDay_matchups = map2_dfr(2, as.Date(secchi$obs_date), filterInWindow)
-threeDay_matchups = map2_dfr(3, as.Date(secchi$obs_date), filterInWindow)
-fiveDay_matchups = map2_dfr(5, as.Date(secchi$obs_date), filterInWindow)
-
-#remove the dupes (why these are happening I honestly don't know.)
-oneDay_matchups=oneDay_matchups[!duplicated(oneDay_matchups),]
-twoDay_matchups=twoDay_matchups[!duplicated(twoDay_matchups),]
-threeDay_matchups=threeDay_matchups[!duplicated(threeDay_matchups),]
-fiveDay_matchups=fiveDay_matchups[!duplicated(fiveDay_matchups),]
+oneDay_matchups = over_match %>% 
+  filter(abs(date_diff) <= days(1))
+twoDay_matchups = over_match %>% 
+  filter(abs(date_diff) <= days(2))
+threeDay_matchups = over_match %>% 
+  filter(abs(date_diff) <= days(3))
+fourDay_matchups = over_match %>% 
+  filter(abs(date_diff) <= days(4))
+fiveDay_matchups = over_match %>% 
+  filter(abs(date_diff) <= days(5))
 
 ```
 
 ## Export matchups
 
 ```{r}
-write.csv(sameDay_matchups, file.path(match_dir, 'sameDay_LS-Secchi_matchups.csv'), row.names = F)
-write.csv(oneDay_matchups, file.path(match_dir, 'oneDay_LS-Secchi_matchups.csv'), row.names = F)
-write.csv(twoDay_matchups, file.path(match_dir, 'twoDay_LS-Secchi_matchups.csv'), row.names = F)
-write.csv(threeDay_matchups, file.path(match_dir, 'threeDay_LS-Secchi_matchups.csv'), row.names = F)
-write.csv(fiveDay_matchups, file.path(match_dir, 'fiveDay_LS-Secchi_matchups.csv'), row.names = F)
+write.csv(sameDay_matchups, file.path(match_dir, paste0('sameDay_LS-Secchi_matchups_n', nrow(sameDay_matchups), '.csv')), row.names = F)
+write.csv(oneDay_matchups, file.path(match_dir, paste0('oneDay_LS-Secchi_matchups_n', nrow(oneDay_matchups), '.csv')), row.names = F)
+write.csv(twoDay_matchups, file.path(match_dir, paste0('twoDay_LS-Secchi_matchups_n', nrow(twoDay_matchups), '.csv')), row.names = F)
+write.csv(threeDay_matchups, file.path(match_dir, paste0('threeDay_LS-Secchi_matchups_n', nrow(threeDay_matchups), '.csv')), row.names = F)
+write.csv(fiveDay_matchups, file.path(match_dir, paste0('fiveDay_LS-Secchi_matchups_n', nrow(fiveDay_matchups), '.csv')), row.names = F)
 ```
