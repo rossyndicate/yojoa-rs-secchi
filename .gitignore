@@ -12,3 +12,6 @@
 
 # data OneDrive link
 data/
+
+# all .htmls since they don't render in GH
+*.html
