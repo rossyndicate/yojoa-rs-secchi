@@ -22,11 +22,11 @@ drive_auth()
 
 # Purpose
 
-This script creates 3, 5, 7 day summaries of the Copernicus ERA5 data for Yojoa for use in the downstream Secchi modeling efforts. The ERA5 data were aqcuired in Google Earth Engine using the script `era5_download.js`.
+This script creates 3, 5, 7 day summaries of the Copernicus ERA5 daily data for Yojoa for use in the downstream Secchi modeling efforts. The ERA5 data were aqcuired in Google Earth Engine using the script `era5_download.js`.
 
 ### Suggested Citations:
 
--   Muñoz Sabater, J., (2019): ERA5-Land monthly averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30), [doi:10.24381/cds.68d2bb30](https://doi.org/10.24381/cds.68d2bb30)
+-   Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30), [doi:10.24381/cds.68d2bb30](https://doi.org/10.24381/cds.68d2bb30)
 
 # Download and Save Locally
 
@@ -35,7 +35,7 @@ GEE output are saved in Google Drive, first, let's move the ERA5 data to a local
 ```{r}
 #get did -- note, if you have a lot of files in your drive, you may want to define the folder before you search for the file.
 dr_file = drive_ls(pattern = 'yojoa_era5_data.csv')
-drive_download(as_id(dr_file$id), path = file.path(era_dir, dr_file$name))
+drive_download(as_id(dr_file$id), path = file.path(era_dir, dr_file$name), overwrite = T)
 ```
 
 # Make summary files
@@ -60,9 +60,9 @@ era5$wind_speed_mps = sqrt(era5$u_component_of_wind_10m^2 + era5$v_component_of_
 ```{r}
 era5_sub = era5 %>% 
   select(date, 
-         precip_m = total_precipitation,
-         max_air_temp_degK = maximum_2m_air_temperature,
-         min_air_temp_degK = minimum_2m_air_temperature,
+         solar_rad_Jpm2 = surface_solar_radiation_downwards_sum,
+         precip_m = total_precipitation_sum,
+         air_temp_degK = temperature_2m,
          wind_speed_mps)
 ```
 
@@ -73,8 +73,8 @@ Previous 3 days summary
 ```{r}
 threeday = as.data.frame(era5_sub$date[3:nrow(era5_sub)])
 colnames(threeday) = 'date'
-threeday$max_temp_degK_3 = roll_max(x  = era5_sub$max_air_temp_degK, align = 'right', 3)
-threeday$min_temp_degK_3 = roll_min(x  = era5_sub$min_air_temp_degK, align = 'right', 3)
+threeday$tot_sol_rad_KJpm2_3 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 3)*0.001
+threeday$mean_temp_degK_3 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 3)
 threeday$tot_precip_m_3 = roll_sum(x  = era5_sub$precip_m, align = 'right', 3)
 threeday$mean_wind_mps_3 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 3)
 ```
@@ -84,8 +84,8 @@ Previous 5 days summary
 ```{r}
 fiveday = as.data.frame(era5_sub$date[5:nrow(era5_sub)])
 colnames(fiveday) = 'date'
-fiveday$max_temp_degK_5 = roll_max(x  = era5_sub$max_air_temp_degK, align = 'right', 5)
-fiveday$min_temp_degK_5 = roll_min(x  = era5_sub$min_air_temp_degK, align = 'right', 5)
+fiveday$tot_sol_rad_KJpm2_5 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 5)*0.001
+fiveday$mean_temp_degK_5 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 5)
 fiveday$tot_precip_m_5 = roll_sum(x  = era5_sub$precip_m, align = 'right', 5)
 fiveday$mean_wind_mps_5 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 5)
 ```
@@ -95,8 +95,8 @@ Seven-day summary
 ```{r}
 sevenday = as.data.frame(era5_sub$date[7:nrow(era5_sub)])
 colnames(sevenday) = 'date'
-sevenday$max_temp_degK_7 = roll_max(x  = era5_sub$max_air_temp_degK, align = 'right', 7)
-sevenday$min_temp_degK_7 = roll_min(x  = era5_sub$min_air_temp_degK, align = 'right', 7)
+sevenday$tot_sol_rad_KJpm2_7 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 7)*0.001
+sevenday$mean_temp_degK_7 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 7)
 sevenday$tot_precip_m_7 = roll_sum(x  = era5_sub$precip_m, align = 'right', 7)
 sevenday$mean_wind_mps_7 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 7)
 ```
