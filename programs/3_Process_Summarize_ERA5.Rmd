@@ -26,7 +26,7 @@ This script creates 3, 5, 7 day summaries of the Copernicus ERA5 data for Yojoa 
 
 ### Suggested Citations:
 
--   Copernicus Climate Change Service (C3S) (2017): ERA5: Fifth generation of ECMWF atmospheric reanalyses of the global climate. Copernicus Climate Change Service Climate Data Store (CDS), (2023-03-29), <https://cds.climate.copernicus.eu/cdsapp#!/home>
+-   Muñoz Sabater, J., (2019): ERA5-Land monthly averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30), [doi:10.24381/cds.68d2bb30](https://doi.org/10.24381/cds.68d2bb30)
 
 # Download and Save Locally
 

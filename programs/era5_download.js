@@ -1,11 +1,11 @@
-// ERA5 data download script for yojoa
+// ERA5 data download for Yojoa
 
 var lat = 14.8768;
 var lon = -87.9791;
 
 var loc = ee.Geometry.Point(lon, lat);
 
-var era5 = ee.ImageCollection('ECMWF/ERA5/DAILY')
+var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_RAW")
   .filterBounds(loc);
   
 // Sample the image at the point
