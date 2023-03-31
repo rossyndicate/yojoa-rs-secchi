@@ -1,0 +1,37 @@
+---
+title: "Add ERA5 data"
+author: "B Steele"
+date: "2023-03-31"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+rs_dir = 'data/upstreamRS/'
+era_dir = 'data/era5_met/'
+```
+
+# Purpose
+
+This script collates the ERA5 met data summaries with the Rrs Corrected values for use in modeling efforts for Yojoa Secchi.
+
+## Load data
+
+```{r}
+corr_rs = read.csv(file.path(rs_dir, 'yojoa_LandsatC2_SR_rrs_corr_v2023-03-31.csv'))
+era5 = read.csv(file.path(era_dir, 'Yojoa_3-5-7day_summary_ERA5.csv'))
+```
+
+## Join data
+
+```{r}
+rs_era5 = left_join(corr_rs, era5)
+```
+
+## Export file
+
+```{r}
+write.csv(rs_era5, file.path(rs_dir, paste0('yojoa_corr_rrs_met_v', Sys.Date(), '.csv')), row.names = F)
+```
+
