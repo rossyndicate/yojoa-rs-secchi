@@ -136,7 +136,7 @@ bands <-  c('med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1','med_Swir
 funcs.5 <- bands %>% map_dfr(lm75)%>% mutate(SatCorr = 'LANDSAT_5')
 ```
 
-### Landsat 8 to 7 
+### Landsat 8 to 7
 
 ```{r}
 funcs.8 <- bands %>% map_dfr(lm78) %>% mutate(SatCorr = 'LANDSAT_8')
