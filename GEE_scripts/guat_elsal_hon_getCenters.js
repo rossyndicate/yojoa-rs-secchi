@@ -41,6 +41,9 @@ var GetLakeCenters = function(feature) { //, scale) {
   var outputDp = ee.Feature(dist.addBands(ee.Image.pixelLonLat()).updateMask(dist.gte(maxDistance))
   .sample(polygon, 100).first());
   var dp = ee.Geometry.Point([outputDp.get('longitude'), outputDp.get('latitude')]);
+  
+  var lat = outputDp.get('latitude');
+  var lon = outputDp.get('longitude');
 
   var regions = ee.FeatureCollection([ee.Feature(dp, {'type': 'dp'})]);
 
@@ -51,7 +54,10 @@ var GetLakeCenters = function(feature) { //, scale) {
     tileScale: 1,
     geometries: true});
 
-  return(ee.Feature(output.first()).set('Hylak_id', id));
+  return(ee.Feature(output.first())
+    .set({'Hylak_id': id,
+          'Latitude': lat,
+          'Longitude': lon}))
 };
 
 var centers = yojoa.map(GetLakeCenters);
