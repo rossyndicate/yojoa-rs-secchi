@@ -15,19 +15,27 @@ Link the applicable OneDrive folder to the `data` folder in the primary director
 
 > [WINDOWS](https://winaero.com/sync-any-folder-onedrive-windows-10/): 
 >
->     mklink /j “where\you\want\it” “where\it\lives\on\OneDrive”
+> ```         
+> mklink /j “where\you\want\it” “where\it\lives\on\OneDrive”
+> ```
 >
 > KATIE'S EXAMPLE: 
 >
->     mklink /j "C:\Users\katie\Documents\0_My_Git\nps_water_vulnerability\data" "C:\Users\katie\OneDrive - Colostate\nps_water_vulnerability\data"
+> ```         
+> mklink /j "C:\Users\katie\Documents\0_My_Git\nps_water_vulnerability\data" "C:\Users\katie\OneDrive - Colostate\nps_water_vulnerability\data"
+> ```
 >
 > [MAC OS](https://apple.stackexchange.com/a/259804): 
 >
->     ln -s “where\it\lives\on\OneDrive” “where\you\want\it”
+> ```         
+> ln -s “where\it\lives\on\OneDrive” “where\you\want\it”
+> ```
 >
 > Matt's example: 
 >
->     ln -s "/Users/mbrousil/OneDrive - Colostate/aquasat_v2/data" "/Users/mbrousil/Documents/aquasat_v2/data"
+> ```         
+> ln -s "/Users/mbrousil/OneDrive - Colostate/aquasat_v2/data" "/Users/mbrousil/Documents/aquasat_v2/data"
+> ```
 >
 > **NOTE FOR MAC USERS: This will likely prompt you to enter your password that you use to log on to your computer.**
 
@@ -38,10 +46,9 @@ library(googledrive)
 library(tidyverse)
 library(lubridate)
 library(ggthemes)
-library(gghighlight)
 
 dump_dir = file.path('data/fromDrive/')
-is_dir = file.file.path('data/in-situ/')
+is_dir = file.path('data/in-situ/')
 coll_dir = file.path('data/upstreamRS/')
 match_dir = file.path('data/matchups/')
 
@@ -56,6 +63,7 @@ Download and collate data and metadata into separate files.
 ```{r}
 #get a file list
 files = drive_ls(path = 'yojoa')
+files = files[grepl('yojoa', files$name),]
 
 #function for downloading to data folder
 dr_down = function(filename, fileid){
@@ -67,6 +75,7 @@ map2(files$name, files$id, dr_down)
 
 # create a list of the files in the tmp directory
 list = list.files(file.path(dump_dir))
+list = list[grepl('yojoa', list)]
 #add prefix
 list = file.path(dump_dir, list)
 
@@ -102,9 +111,6 @@ collated_data$`system:index` = map(collated_data$`system:index`, grabSystemIndex
 
 collated_data$`system:index` = as.character(collated_data$`system:index`)
 
-#drop the pCount columns that are blank (this is just an artefact of the workflow)
-collated_data <- collated_data %>% 
-  select(-c(pCount_Aerosol:pCount_SurfaceTemp))
 ```
 
 Grab only the metadata we want
@@ -152,6 +158,13 @@ There are likely other filters you will want to apply, but these are the minimal
 filtered = data %>% 
   filter(pCount_dswe1 > 10 &
            IMAGE_QUALITY >= 7)
+```
+
+We are also going to filter to remove any median Rrs values greater than 0.2
+
+```{r}
+filtered = filtered %>% 
+  filter_at(vars(med_Red, med_Green, med_Blue, med_Nir, med_Swir1, med_Swir2), all_vars(.<0.2 & . > -0.01))
 ```
 
 Read in location info
