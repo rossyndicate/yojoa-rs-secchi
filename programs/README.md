@@ -1,4 +1,22 @@
-Script 1_RS_collate_harmonize.Rmd collates and harmonizes the output from GEE, 2_LSC2_secchi_matchup.Rmd creates the matchup files, X_LS4-7_LS8-9_handoff.Rmd is a quick model to aide in more transferable data between the two atmospheric correction methods.
+# yojoa-rs-secchi/programs
+
+This directory contains the scripts that collate, harmonize, and generally munge the RS, Secchi, and met data into a common file. The programs are numbered in the order that they were originally run.
+
+## Script descriptions
+
+* Script 1_RS_collate_harmonize.Rmd collates and harmonizes the output from GEE for the Yojoa in-lake locations
+
+* 2_Process_Summarize_ERA5.Rmd summarizes the ERA5 met data in 3, 5, and 7 day windows.
+
+* 3_regionalRS_collate_harmonize.Rmd: similar to script 1, this script collates and harmonizes GEE output, but here, it does this for the regional set of lakes for the handoff correction
+
+* 4_regional_handoff_calcs.Rmd: this script takes the regional stacks and calculates handoff coefficients to provide band reflectance values relative to Landsat 7.
+
+* 5_apply_handoff_calcs.Rmd: this script applies the handoff calcs to the Yojoa in-lake location dataset
+
+* 6_add_era5_data.Rmd: this script adds the ERA5 summaries to the band value correction dataset.
+
+* 7_LSC2_secchi_matchup.Rmd creates the matchup files found in the `data/matchups` folder
 
 Script 1_RS_collate_harmonize.Rmd assumes that you have run the Landsat stack files in the 'landsat_c2' folder within this repository or have access to the Drive folder with the output created in those scripts. You will not be able to run this code if you have not completed the LS stack run or if the output has not been shared with you.
 
@@ -6,25 +24,11 @@ Script 1_RS_collate_harmonize.Rmd assumes that you have run the Landsat stack fi
 
 -   The files sameDay_LS-Secchi_matchups.csv, oneDay..., twoDay..., threeDay..., fiveDay... found in the data folder were created in the script 2_LSC2_secchi_matchup.Rmd 
 
--   We did not apply any Landsat 4-7/Landsat 8-9 handoff models. In the script X_LS_4-7_LS8-9_handoff.Rmd, we begin investigating that, but this will need additional work. See [Topp, et al 2021](https://iopscience.iop.org/article/10.1088/1748-9326/abf002#artAbst).
+
+
 
 # Data set column definitions, units, sources
 
-These column names apply to the following files in the data folder:
-
-* `sameDay_LS-Secchi_matchups.csv`
-
-* `oneDay_LS-Secchi_matchups.csv`
-
-* `twoDay_LS-Secchi_matchups.csv`
-
-* `threeDay_LS-Secchi_matchups.csv`
-
-* `fiveDay_LS-Secchi_matchups.csv`
-
-* `Yojoa_Landsat_C2_SRST_collated_v2023-03-03.csv` : all data from the Landsat C2 scripts, no filters applied
-
-* `Yojoa_Landsat_C2_SRST_filtered_v2023-03-03.csv` : suggested file for creating the matchups
 
 | Column name (or prefix, suffix) | Definition                                                                                                                                                                                                                                                                                         | Missions                                            | Units                          | Data Source                   | Use Case                     |
 |------------|------------|------------|------------|------------|------------|

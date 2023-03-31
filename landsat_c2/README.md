@@ -24,3 +24,6 @@ When using these scripts, you must run them in the 'landsat_c2.RProj' file. If y
 
     -  pySetup.R: script that uses the `reticulate` package to set up a reproducible python environement compatible with R
  
+* forHandoffs:
+
+These are the same scripts as above, but they use the regional center locations to pull stacks for the regional handoff coefficients.
