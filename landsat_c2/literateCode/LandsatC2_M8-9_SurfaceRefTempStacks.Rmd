@@ -522,7 +522,6 @@ for tiles in pr:
                                           'Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp',
                                           'Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp',
                                           'sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
-                                          'pCount_Aerosol','pCount_Blue', 'pCount_Green', 'pCount_Red', 'pCount_Nir', 'pCount_Swir1', 'pCount_Swir2', 'pCount_SurfaceTemp',
                                           'kurt_SurfaceTemp', 'prop_clouds','prop_medHighAero','prop_hillShadow','pCount_dswe1', 'pCount_dswe3', 'min_cloud_dist', 'mean_cloud_dist','system:index']))
   
   #Check how many existing tasks are running and take a break of 120 secs if it's >25 
