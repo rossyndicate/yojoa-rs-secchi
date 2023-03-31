@@ -6,13 +6,18 @@ jupyter: python3
 ---
 
 ```{r setup}
-library(nhdplusTools)
 library(tidyverse)
 library(sf)
+library(googledrive)
 
 #point to the directory where your location information is stored
 #make sure this path ends with a '/'
-data_dir = 'data'
+data_dir = 'data/'
+
+#authenticate drive
+drive_auth()
+1 #your selection may be different!
+
 ```
 
 ## *Purpose*
@@ -20,6 +25,8 @@ data_dir = 'data'
 Pull surface reflectance and temperature values for Landsat-visible lakes given user-provided locations for Landsat missions 8 and 9. Code here is heavily borrowed from the script 'LakeExport.py' and 'GEE_reflectance_pull.py' from the [LakeReflectanceRepo](https://github.com/GlobalHydrologyLab/LakeReflectanceRepo) (Simon Topp).
 
 Updates in this script from these source files include updating to Landsat Collection 2 and incorporating the Landsat 4&9 missions. Additional feature adds a **RADSAT_QA** band filter to mask out saturated pixels and the separation of LS4-7 and LS8-9 into separate workflows because QA bands are slightly different.
+
+In this script, we're grabbing stacks for the Chebyshev centers via Xiao's method (Yang 2020). This was completed in the script `GEE_scripts/guat_elsal_hon_getCenters.js` in the GEE UI. Lake polygons used were from the HydroLakes dataset (Messager, et al., 2016), and were subsetted to those greater than 25 ha within the countries of Honduras, Guatemala, and El Salvador.
 
 ## *Requirements*
 
@@ -68,19 +75,22 @@ ee.Initialize()
 *Read in lat/lon file and create an EE asset. Location file must use the column names 'Latitude' and 'Longitude', otherwise make sure you rename them before running the function.*
 
 ```{r}
-#point to file - must contin the parameters Latitude, Longitude, comid, and name
-locs = read.csv(file.path(data_dir, 'location_lat_longs_YOJOA.csv'))
+drive_file_info = drive_ls(path = 'yojoa', pattern = 'centers')
+drive_download(as_id(drive_file_info$id), path = file.path(data_dir, 'shapefiles', drive_file_info$name), overwrite = T)
+
+#point to file in your data directory path - this file must contian the parameters Latitude, Longitude, id, and name for this section of code to work correctly
+locs = read.csv(file.path(data_dir, 'shapefiles', drive_file_info$name))
 
 #rename to required cols Latitude, Longitude, id, name
 locs = locs %>% 
   rowid_to_column() %>% 
-  rename(name = location,
-         id = rowid,
-         Latitude = lat,
-         Longitude = long)
+  rename(name = Hylak_id,
+         id = rowid) %>% 
+  mutate(name = as.character(name),
+         id = as.numeric(id))
 
 #give this a short project name (for file naming conventions)
-proj = 'yojoa'
+proj = 'HON_GUAT_ELSAL'
 
 #and specify a folder name for the landsat stacks to get dumped into in your Google Drive. The script will create the folder if it does not exist.
 proj_folder = 'yojoa'
@@ -522,7 +532,6 @@ for tiles in pr:
                                           'Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp',
                                           'Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp',
                                           'sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
-                                          'pCount_Aerosol','pCount_Blue', 'pCount_Green', 'pCount_Red', 'pCount_Nir', 'pCount_Swir1', 'pCount_Swir2', 'pCount_SurfaceTemp',
                                           'kurt_SurfaceTemp', 'prop_clouds','prop_medHighAero','prop_hillShadow','pCount_dswe1', 'pCount_dswe3', 'min_cloud_dist', 'mean_cloud_dist','system:index']))
   
   #Check how many existing tasks are running and take a break of 120 secs if it's >25 
