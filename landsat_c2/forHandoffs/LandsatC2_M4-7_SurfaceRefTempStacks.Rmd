@@ -1,25 +1,41 @@
 ---
-title: "Pull Landsat Collection 2 Surface Reflectance and Temperature Stacks for Missions 8 and 9"
+title: "Pull Landsat Collection 2 Surface Reflectance and Temperature Stacks for Missions 4-7"
 author: "B Steele"
 format: html
 jupyter: python3
 ---
 
 ```{r setup}
-library(nhdplusTools)
 library(tidyverse)
 library(sf)
+library(googledrive)
 
 #point to the directory where your location information is stored
 #make sure this path ends with a '/'
-data_dir = 'data'
+data_dir = 'data/'
+
+#authenticate drive
+drive_auth()
+1 #your selection may be different!
 ```
 
 ## *Purpose*
 
-Pull surface reflectance and temperature values for Landsat-visible lakes given user-provided locations for Landsat missions 8 and 9. Code here is heavily borrowed from the script 'LakeExport.py' and 'GEE_reflectance_pull.py' from the [LakeReflectanceRepo](https://github.com/GlobalHydrologyLab/LakeReflectanceRepo) (Simon Topp).
+Pull surface reflectance and temperature values for Landsat-visible lakes given user-provided locations for Landsat missions 4-7. Code here is heavily borrowed from the script 'LakeExport.py' and 'GEE_reflectance_pull.py' from the [LakeReflectanceRepo](https://github.com/GlobalHydrologyLab/LakeReflectanceRepo) (Simon Topp).
 
 Updates in this script from these source files include updating to Landsat Collection 2 and incorporating the Landsat 4&9 missions. Additional feature adds a **RADSAT_QA** band filter to mask out saturated pixels and the separation of LS4-7 and LS8-9 into separate workflows because QA bands are slightly different.
+
+In this script, we're grabbing stacks for the Chebyshev centers via Xiao's method (Yang 2020). This was completed in the script `GEE_scripts/guat_elsal_hon_getCenters.js` in the GEE UI. Lake polygons used were from the HydroLakes dataset (Messager, et al., 2016), and were subsetted to those greater than 25 ha within the countries of Honduras, Guatemala, and El Salvador.
+
+## Citations:
+
+-   Citation for HydroLakes:
+
+Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimating the volume and age of water stored in global lakes using a geo-statistical approach. Nature Communications, 7: 13603. https://doi.org/10.1038/ncomms13603
+
+-   Citation for Xiao's center calcs:
+
+Yang, Xiao. (2020). Deepest point calculation for any given polygon using Google Earth Engine JavaScript API (Version v2). Zenodo. https://doi.org/10.5281/zenodo.6341960
 
 ## *Requirements*
 
@@ -53,7 +69,7 @@ dataDir = r.data_dir
 
 ### Authenticate earth engine.
 
-At the moment, 'ee.Authenticate()' is not working in Qmd/Rmd, to authenticate manually, go to your command line interpreter or the `zsh` terminal in RStudio (`BASH` terminals will not work) and execute:
+At the moment, 'ee.Authenticate()' is not working in Rmd, to authenticate manually, go to your command line interpreter or the `zsh` terminal in RStudio (`BASH` terminals will not work) and execute:
 
 `earthengine authenticate`
 
@@ -67,20 +83,25 @@ ee.Initialize()
 
 *Read in lat/lon file and create an EE asset. Location file must use the column names 'Latitude' and 'Longitude', otherwise make sure you rename them before running the function.*
 
+The center points were calculated in GEE and are in B's drive folder - we need to download and read those in here.
+
 ```{r}
-#point to file - must contin the parameters Latitude, Longitude, comid, and name
-locs = read.csv(file.path(is_dir, 'location_lat_longs_YOJOA.csv'))
+drive_file_info = drive_ls(path = 'yojoa', pattern = 'centers')
+drive_download(as_id(drive_file_info$id), path = file.path(data_dir, 'shapefiles', drive_file_info$name), overwrite = T)
+
+#point to file in your data directory path - this file must contian the parameters Latitude, Longitude, id, and name for this section of code to work correctly
+locs = read.csv(file.path(data_dir, 'shapefiles', drive_file_info$name))
 
 #rename to required cols Latitude, Longitude, id, name
 locs = locs %>% 
   rowid_to_column() %>% 
-  rename(name = location,
-         id = rowid,
-         Latitude = lat,
-         Longitude = long)
+  rename(name = Hylak_id,
+         id = rowid) %>% 
+  mutate(name = as.character(name),
+         id = as.numeric(id))
 
 #give this a short project name (for file naming conventions)
-proj = 'yojoa'
+proj = 'HON_GUAT_ELSAL'
 
 #and specify a folder name for the landsat stacks to get dumped into in your Google Drive. The script will create the folder if it does not exist.
 proj_folder = 'yojoa'
@@ -88,11 +109,11 @@ proj_folder = 'yojoa'
 
 ### Specify time period of interest
 
-As written below, this script will pull all historical Landsat 8 and 9 images. If you wish to focus the script to a shortened time period, you may adjust these. Landsat 8 was deployed in 2013.
+As written below, this script will pull all historical Landsat 4, 5, and 7 images. If you wish to focus the script to a shortened time period, you may adjust these. [Landsat 7's nominal science mission on the WRS2 path ended on April 6, 2022](usgs.gov/landsat-missions/landsat-7).
 
 ```{r}
-start_date_89 = '2013-01-01'
-end_date_89 = as.character(Sys.Date())
+start_date_457 = '1983-01-01'
+end_date_457 = '2022-04-06'
 ```
 
 ------------------------------------------------------------------------
@@ -157,30 +178,35 @@ As written, this script only removes scenes with 95% cloud cover. If you're proc
 
 ```{python}
 #grab images and apply scaling factors
-l8 = (ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+l7 = (ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
     .map(applyScaleFactors)
     .filter(ee.Filter.lt('CLOUD_COVER', 95))
-    .filterDate(r.start_date_89, r.end_date_89))
-l9 = (ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+    .filterDate(r.start_date_457, r.end_date_457))
+l5 = (ee.ImageCollection('LANDSAT/LT05/C02/T1_L2')
     .map(applyScaleFactors)
     .filter(ee.Filter.lt('CLOUD_COVER', 95))
-    .filterDate(r.start_date_89, r.end_date_89))
-
+    .filterDate(r.start_date_457, r.end_date_457))
+l4 = (ee.ImageCollection('LANDSAT/LT04/C02/T1_L2')
+    .map(applyScaleFactors)
+    .filter(ee.Filter.lt('CLOUD_COVER', 95))
+    .filterDate(r.start_date_457, r.end_date_457))
+    
 # merge collections by image processing groups
-ls89 = ee.ImageCollection(l8.merge(l9)).filterBounds(wrs)  
+ls457 = (ee.ImageCollection(l4.merge(l5).merge(l7))
+    .filterBounds(wrs))  
     
 # existing band names
-bn89 = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'QA_PIXEL', 'SR_QA_AEROSOL', 'QA_RADSAT', 'ST_B10', 'ST_QA', 'ST_CDIST']
+bn457 = ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7', 'QA_PIXEL', 'SR_CLOUD_QA', 'QA_RADSAT', 'ST_B6', 'ST_QA', 'ST_CDIST']
 # new band names
-bns = ['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2','pixel_qa', 'aerosol_qa', 'radsat_qa', 'SurfaceTemp', 'temp_qa', 'ST_CDIST']
- 
+bns = ['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'pixel_qa', 'cloud_qa', 'radsat_qa', 'SurfaceTemp', 'temp_qa', 'ST_CDIST']
+  
 # rename bands  
-ls89 = ls89.select(bn89, bns)
+ls457 = ls457.select(bn457, bns)
 
 # do a reality check to see how many unique scenes are here. This can take a few seconds to run if it's a large area - I don't suggest this if the length of your WRS object is >5.
 if len(pr) <= 5 :
-  ls89_count = ls89.aggregate_count('LANDSAT_PRODUCT_ID').getInfo()
-  print(ls89_count)
+  ls457_count = ls457.aggregate_count('LANDSAT_PRODUCT_ID').getInfo()
+  print(ls457_count)
 
 ```
 
@@ -217,21 +243,25 @@ def cfMask(image):
   #grab just the pixel_qa info
   qa = image.select('pixel_qa')
   cloudqa = (qa.bitwiseAnd(1 << 1).rename('cfmask') #dialated clouds value 1
-    .where(qa.bitwiseAnd(1 << 2), ee.Image(2)) #cirrus clouds value 2
-    .where(qa.bitwiseAnd(1 << 3), ee.Image(3)) # clouds value 3
-    .where(qa.bitwiseAnd(1 << 4), ee.Image(4)) # cloud shadows value 4
-    .where(qa.bitwiseAnd(1 << 5), ee.Image(5))) # snow value 5
+    .where(qa.bitwiseAnd(1 << 3), ee.Image(2)) # clouds value 2
+    .where(qa.bitwiseAnd(1 << 4), ee.Image(3)) # cloud shadows value 3
+    .where(qa.bitwiseAnd(1 << 5), ee.Image(4))) # snow value 4
   return image.addBands(cloudqa)
 
 ```
 
-#### srAerosol: grabbing qualitative measure of aerosol Level
+#### srCloudMask: function to use cloud_qa band
 
 ```{python}
-def srAerosol(image):
-  aerosolQA = image.select('aerosol_qa')
-  medHighAero = aerosolQA.bitwiseAnd(1 << 7).rename('medHighAero')# pull out mask out where aeorosol is med and high
-  return image.addBands(medHighAero)
+# Filter out sr cloud qa issues -- these come from atm corr processing; however the pixel QA is still more resilient than these. 
+# Use this as a secondary filter on top of pixel qa to mask out invalid pixels during atm correction
+def srCloudMask(image):
+  srCloudQA = image.select('cloud_qa')
+  srMask = (srCloudQA.bitwiseAnd(1 << 1).rename('sr_cloud') # cloud
+    .where(srCloudQA.bitwiseAnd(1 << 2), ee.Image(2)) # cloud shadow
+    .where(srCloudQA.bitwiseAnd(1 << 3), ee.Image(3)) # adjacent to cloud
+    .where(srCloudQA.bitwiseAnd(1 << 4), ee.Image(4))) # snow/ice
+  return image.addBands(srMask)
 
 ```
 
@@ -247,16 +277,13 @@ def Mndwi(image):
     'SWIR1': image.select(['Swir1'])
   }))
 
-
 # multi-band Spectral Relationship Visible
 def Mbsrv(image):
   return (image.select(['Green']).add(image.select(['Red'])).rename('mbsrv'))
 
-
 # Multi-band Spectral Relationship Near infrared
 def Mbsrn(image):
   return (image.select(['Nir']).add(image.select(['Swir1'])).rename('mbsrn'))
-
 
 # Normalized Difference Vegetation Index
 def Ndvi(image):
@@ -264,7 +291,6 @@ def Ndvi(image):
     'RED': image.select(['Red']),
     'NIR': image.select(['Nir'])
   }))
-
 
 # Automated Water Extent Shadow
 def Awesh(image):
@@ -274,7 +300,6 @@ def Awesh(image):
     'mbsrn': Mbsrn(image).select(['mbsrn']),
     'Swir2': image.select(['Swir2'])
   }))
-
 
 ```
 
@@ -292,8 +317,7 @@ def DSWE(i):
   ndvi = Ndvi(i)
   blue = i.select(['Blue'])
   swir2 = i.select(['Swir2'])
-  # These thresholds are taken from the LS Collection 2 DSWE Data Format Control Book:
-  # (https:#d9-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/media/files/LSDS-2042_LandsatC2_L3_DSWE_DFCB-v2.pdf)
+  # These thresholds are taken from the LS Collection 2 DSWE Data Format Control Book
   # Inputs are meant to be scaled reflectance values 
   t1 = mndwi.gt(0.124) # MNDWI greater than Wetness Index Threshold
   t2 = mbsrv.gt(mbsrn) # MBSRV greater than MBSRN
@@ -389,63 +413,64 @@ def removeGeo(i):
 
 ```
 
-#### ***RefPull89: Pulling all the working functions together:***
+#### ***RefPull457: Pulling all the working functions together:***
 
 ```{python}
 ## Set up the reflectance pull
-def RefPull89(image):
+def RefPull457(image):
   # process image with the radsat mask
   r = addRadMask(image).select('radsat')
   # process image with cfmask
   f = cfMask(image).select('cfmask')
   # process image with st SR cloud mask
-  a = srAerosol(image).select('medHighAero')
+  s = srCloudMask(image).select('sr_cloud')
   # where the f mask is > 2 (clouds and cloud shadow), call that 1 (otherwise 0) and rename as clouds.
   clouds = f.gte(1).rename('clouds')
   #apply dswe function
   d = DSWE(image).select('dswe')
-  dswe1 = d.eq(1).rename('dswe1').updateMask(f.eq(0)).updateMask(r.eq(1)).selfMask()
+  dswe1 = d.eq(1).rename('dswe1').updateMask(f.eq(0)).updateMask(r.eq(1)).updateMask(s.eq(0)).selfMask()
   # band where dswe is 3 and apply all masks
-  dswe3 = d.eq(3).rename('dswe3').updateMask(f.eq(0)).updateMask(r.eq(1)).selfMask()
+  dswe3 = d.eq(3).rename('dswe3').updateMask(f.eq(0)).updateMask(r.eq(1)).updateMask(s.eq(0)).selfMask()
   #calculate hillshade
   h = CalcHillShades(image, tile.geometry()).select('hillShade')
   #calculate hillshadow
   hs = CalcHillShadows(image, tile.geometry()).select('hillShadow')
-  pixOut = (image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
-            ['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa'])
-            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa', 'ST_CDIST'],
-            ['min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa', 'min_cloud_dist']))
-            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
-            ['max_Aerosol', 'max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa']))
-            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp'],
-            ['Q1_Aerosol', 'Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp']))
-            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp'],
-            ['Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp']))
-            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
-            ['sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa']))
-            .addBands(image.select(['Aerosol','Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa', 'ST_CDIST'],
-            ['mean_Aerosol','mean_Blue', 'mean_Green', 'mean_Red', 'mean_Nir', 'mean_Swir1', 'mean_Swir2', 'mean_SurfaceTemp', 'mean_temp_qa', 'mean_cloud_dist']))
+  
+  pixOut = (# make some dummy bands for the reducer
+            image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
+            ['med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa'])
+            .addBands(image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa', 'ST_CDIST'],
+            ['min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa', 'min_cloud_dist']))
+            .addBands(image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
+            ['max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa']))
+            .addBands(image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp'],
+            ['Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp']))
+            .addBands(image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp'],
+            ['Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp']))
+            .addBands(image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa'],
+            ['sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa']))
+            .addBands(image.select(['Blue', 'Green', 'Red', 'Nir', 'Swir1', 'Swir2', 'SurfaceTemp', 'temp_qa','ST_CDIST'],
+            ['mean_Blue', 'mean_Green', 'mean_Red', 'mean_Nir', 'mean_Swir1', 'mean_Swir2', 'mean_SurfaceTemp', 'mean_temp_qa', 'mean_cloud_dist']))
             .addBands(image.select(['SurfaceTemp']))
             .updateMask(d.eq(1)) # only high confidence water
             .updateMask(r.eq(1)) #1 == no saturated pixels
             .updateMask(f.eq(0)) #no snow or clouds
+            .updateMask(s.eq(0)) # no SR processing artefacts
             .addBands(dswe1)
             .addBands(dswe3)
-            .addBands(hs)
             .addBands(clouds) 
-            .addBands(a)
-            ) 
-            
-  combinedReducer = (ee.Reducer.median().unweighted().forEachBand(pixOut.select(['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa']))
-  .combine(ee.Reducer.min().unweighted().forEachBand(pixOut.select(['min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa', 'min_cloud_dist'])), sharedInputs = False)
-  .combine(ee.Reducer.max().unweighted().forEachBand(pixOut.select(['max_Aerosol','max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa'])), sharedInputs = False)
-  .combine(ee.Reducer.percentile([25]).unweighted().forEachBand(pixOut.select(['Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp'])), sharedInputs = False)
-  .combine(ee.Reducer.percentile([75]).unweighted().forEachBand(pixOut.select(['Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp'])), sharedInputs = False)
-  .combine(ee.Reducer.stdDev().unweighted().forEachBand(pixOut.select(['sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa'])), sharedInputs = False)
-  .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['mean_Aerosol','mean_Blue', 'mean_Green', 'mean_Red', 'mean_Nir', 'mean_Swir1', 'mean_Swir2', 'mean_SurfaceTemp', 'mean_temp_qa', 'mean_cloud_dist'])), sharedInputs = False)
+            .addBands(hs)) 
+  combinedReducer = (ee.Reducer.median().unweighted().forEachBand(pixOut.select(['med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa']))
+  .combine(ee.Reducer.min().unweighted().forEachBand(pixOut.select(['min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa', 'min_cloud_dist'])), sharedInputs = False)
+  .combine(ee.Reducer.max().unweighted().forEachBand(pixOut.select(['max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa'])), sharedInputs = False)
+  .combine(ee.Reducer.percentile([25]).unweighted().forEachBand(pixOut.select(['Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp'])), sharedInputs = False)
+  .combine(ee.Reducer.percentile([75]).unweighted().forEachBand(pixOut.select(['Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp'])), sharedInputs = False)
+  .combine(ee.Reducer.stdDev().unweighted().forEachBand(pixOut.select(['sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa'])), sharedInputs = False)
+  .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['mean_Blue', 'mean_Green', 'mean_Red', 'mean_Nir', 'mean_Swir1', 'mean_Swir2', 'mean_SurfaceTemp', 'mean_temp_qa', 'mean_cloud_dist'])), sharedInputs = False)
   .combine(ee.Reducer.kurtosis().unweighted().forEachBand(pixOut.select(['SurfaceTemp'])), outputPrefix = 'kurt_', sharedInputs = False)
   .combine(ee.Reducer.count().unweighted().forEachBand(pixOut.select(['dswe1', 'dswe3'])), outputPrefix = 'pCount_', sharedInputs = False)
-  .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['hillShadow', 'clouds', 'medHighAero'])), outputPrefix = 'prop_', sharedInputs = False))
+  #.combine(ee.Reducer.sum().unweighted().forEachBand(pixOut.select(['dswe1', 'dswe3'])), outputPrefix = 'pCount_', sharedInputs = False)
+  .combine(ee.Reducer.mean().unweighted().forEachBand(pixOut.select(['clouds', 'hillShadow'])), outputPrefix = 'prop_', sharedInputs = False))
   # Collect median reflectance and occurance values
   # Make a cloud score, and get the water pixel count
   lsout = (pixOut.reduceRegions(extent, combinedReducer, 30))
@@ -497,43 +522,41 @@ done = []
 pr = [i for i in pr if i not in done] #this removes pathrow values that have already been processed
 ```
 
-### Run the Reflectance Pull for 8&9 for point locations, whole lakes, and metadata
+### Run the Reflectance Pull for 457 for point locations, lakes, and metadata
 
 ```{python}
 for tiles in pr:
   tile = wrs.filterMetadata('PR', 'equals', tiles)
-
+  
   ## get locs feature ##
   locs = (locs_feature.filterBounds(tile.geometry())
     .map(dpBuff))
   extent = locs
   # snip the ls data by the geometry of the lake points    
-  locs_stack = ls89.filterBounds(locs.geometry()) 
+  locs_stack = ls457.filterBounds(locs.geometry()) 
   # map the refpull function across the 'stack', flatten to an array,
-  locs_out = locs_stack.map(RefPull89).flatten()
-  locs_srname = r.proj+'_point_LS89_C2_SRST_'+str(tiles)+'_v'+str(date.today())
+  locs_out = locs_stack.map(RefPull457).flatten()
+  locs_srname = r.proj+'_point_LS457_C2_SRST_'+str(tiles)+'_v'+str(date.today())
   locs_dataOut = (ee.batch.Export.table.toDrive(collection = locs_out,
                                           description = locs_srname,
                                           folder = r.proj_folder,
                                           fileFormat = 'csv',
-                                          selectors = ['med_Aerosol','med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa',
-                                          'min_Aerosol','min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa',
-                                          'max_Aerosol','max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa',
-                                          'Q1_Aerosol','Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp',
-                                          'Q3_Aerosol','Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp',
-                                          'sd_Aerosol','sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
-                                          'kurt_SurfaceTemp', 'prop_clouds','prop_medHighAero','prop_hillShadow','pCount_dswe1', 'pCount_dswe3', 'min_cloud_dist', 'mean_cloud_dist','system:index']))
-  
+                                          selectors = ['med_Blue', 'med_Green', 'med_Red', 'med_Nir', 'med_Swir1', 'med_Swir2', 'med_SurfaceTemp', 'med_temp_qa',
+                                          'min_Blue', 'min_Green', 'min_Red', 'min_Nir', 'min_Swir1', 'min_Swir2', 'min_SurfaceTemp', 'min_temp_qa',
+                                          'max_Blue', 'max_Green', 'max_Red', 'max_Nir', 'max_Swir1', 'max_Swir2', 'max_SurfaceTemp', 'max_temp_qa',
+                                          'Q1_Blue', 'Q1_Green', 'Q1_Red', 'Q1_Nir', 'Q1_Swir1', 'Q1_Swir2', 'Q1_SurfaceTemp', 
+                                          'Q3_Blue', 'Q3_Green', 'Q3_Red', 'Q3_Nir', 'Q3_Swir1', 'Q3_Swir2', 'Q3_SurfaceTemp', 
+                                          'sd_Blue', 'sd_Green', 'sd_Red', 'sd_Nir', 'sd_Swir1', 'sd_Swir2', 'sd_SurfaceTemp', 'sd_temp_qa',
+                                          'kurt_SurfaceTemp','prop_clouds','prop_hillShadow','pCount_dswe1', 'pCount_dswe3','min_cloud_dist', 'mean_cloud_dist','system:index']))
   #Check how many existing tasks are running and take a break of 120 secs if it's >25 
   maximum_no_of_tasks(10, 120)
   #Send next task.                                        
   locs_dataOut.start()
-  print('locs extraction for ' + str(tiles) + ' sent to GEE')
-
+  print('locs extraction for tile ' + str(tiles) + ' sent to GEE')
   
   ## get metadata ##
-  meta_srname = r.proj+'_metadata_LS89_C2_'+str(tiles)+'_v'+str(date.today())
-  meta_dataOut = (ee.batch.Export.table.toDrive(collection = ls89,
+  meta_srname = r.proj+'_metadata_LS457_C2_'+str(tiles)+'_v'+str(date.today())
+  meta_dataOut = (ee.batch.Export.table.toDrive(collection = ls457,
                                           description = meta_srname,
                                           folder = r.proj_folder,
                                           fileFormat = 'csv'))
@@ -542,7 +565,7 @@ for tiles in pr:
   maximum_no_of_tasks(10, 120)
   #Send next task.                                        
   meta_dataOut.start()
-  
+
   #advance the counter
   counter = counter + 1
   done.append(tiles)

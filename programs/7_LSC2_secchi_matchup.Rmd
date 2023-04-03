@@ -9,7 +9,6 @@ output: html_document
 library(tidyverse)
 library(readxl)
 library(lubridate)
-library(tibbletime)
 
 is_dir = 'data/in-situ/'
 coll_dir = 'data/upstreamRS/'
@@ -25,14 +24,13 @@ To create a match up database of the Landsat record and historical Secchi data f
 
 ```{r}
 secchi = read.csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
-  mutate(date = as.Date(date, format = '%m/%d/%y'))  
+  mutate(date = as.Date(date, format = '%m/%d/%y')) 
 str(secchi)
 #there are duplicated records in here, remove them
 secchi = secchi[!duplicated(secchi),]
 
-ls = read.csv(file.path(coll_dir, 'Yojoa_LandsatC2_SRST_filtered_v2023-03-16.csv')) %>% 
-  mutate(date = as.Date(date)) %>% 
-  select(-rowid)
+ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-03-31.csv')) %>% 
+  mutate(date = as.Date(date)) 
 str(ls)
 ```
 
@@ -46,7 +44,9 @@ And now we can move out from there:
 
 ```{r}
 #force join by location (of all possible pairs by location)
-over_match = full_join(ls, secchi, by = 'location') %>% 
+over_match = secchi %>% 
+  rename(obs_date = date) %>% 
+  full_join(ls, secchi, by = 'location') %>% 
   mutate(date_diff = obs_date-date) #calculate the time difference
 
 oneDay_matchups = over_match %>% 

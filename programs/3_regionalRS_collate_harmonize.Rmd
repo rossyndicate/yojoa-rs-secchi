@@ -7,7 +7,7 @@ output: html_document
 
 # Purpose
 
-To pull all GEE-derived data into a single dataset with scene-level metadata and save locally.
+To pull all GEE-derived data into a single dataset with scene-level metadata and save locally - this script is specific for the regional run of the GEE script that grabbed data for lake centers for all lakes \>= 25ha in Guatemala, Honduras, and El Salvador in order to create a better hand off model for all missions.
 
 # Requirements
 
@@ -48,9 +48,7 @@ library(lubridate)
 library(ggthemes)
 
 dump_dir = file.path('data/fromDrive/')
-is_dir = file.path('data/in-situ/')
 coll_dir = file.path('data/upstreamRS/')
-match_dir = file.path('data/matchups/')
 
 drive_auth()
 1
@@ -62,8 +60,7 @@ Download and collate data and metadata into separate files.
 
 ```{r}
 #get a file list
-files = drive_ls(path = 'yojoa')
-files = files[grepl('yojoa', files$name),]
+files = drive_ls(path = 'yojoa', pattern = 'HON')
 
 #function for downloading to data folder
 dr_down = function(filename, fileid){
@@ -75,7 +72,8 @@ map2(files$name, files$id, dr_down)
 
 # create a list of the files in the tmp directory
 list = list.files(file.path(dump_dir))
-list = list[grepl('yojoa', list)]
+#grab only the regional files
+list = list[grepl('HON', list)]
 #add prefix
 list = file.path(dump_dir, list)
 
@@ -141,7 +139,7 @@ data = left_join(collated_data, filtered_metadata) %>%
 #clean up workspace
 rm(collated_data, collated_metadata)
 
-write.csv(data, file.path(coll_dir, paste0('Yojoa_LandsatC2_SRST_collated_v', Sys.Date(), '.csv')))
+write.csv(data, file.path(coll_dir, paste0('HON_GUAT_ELSAL_regional_LandsatC2_SRST_collated_v', Sys.Date(), '.csv')))
 ```
 
 ## Filter scene summaries
@@ -164,28 +162,11 @@ We are also going to filter to remove any median Rrs values greater than 0.2
 
 ```{r}
 filtered = filtered %>% 
-  filter_at(vars(med_Red, med_Green, med_Blue, med_Nir, med_Swir1, med_Swir2), all_vars(.<0.2 & . > -0.01))
-```
-
-Read in location info
-
-```{r}
-locs = read.csv(file.path(is_dir, 'location_lat_longs_YOJOA.csv')) %>% 
-  rowid_to_column() %>% 
-  select(rowid, location)
-```
-
-Join filtered data with location info
-
-```{r}
-filtered <- filtered %>% 
-  mutate(rowid = as.integer(rowid),
-         sat = as.character(mission)) %>% 
-  full_join(., locs)
+  filter_at(vars(med_Red, med_Green, med_Blue, med_Nir, med_Swir1, med_Swir2), all_vars(.<0.2 & .>-0.01))
 ```
 
 ## Export to OneDrive folder
 
 ```{r}
-write.csv(filtered, file.path(coll_dir, paste0('Yojoa_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
+write.csv(filtered, file.path(coll_dir, paste0('HON_GUAT_ELSAL_regional_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
 ```
