@@ -4,6 +4,8 @@ This repository contains code to support a project led by Jemma Fadum and is bas
 
 The Landsat record was last acquired in March of 2023 by B. Steele using the code in the subdirectory 'landsat_c2'.
 
+Note, this project is still under development. Data specific to this analysis are housed in CSU OneDrive folders and may not be 100% reproducible at this time. The data will be made available at or before the time of publication. If you require access to data prior to it being made public, please contact @matthewross07.
+
 ### Suggested citations for datasets/code used in this workflow:
 
 -   Yang, Xiao. (2020). Deepest point calculation for any given polygon using Google Earth Engine JavaScript API (Version v2). Zenodo. <https://doi.org/10.5281/zenodo.6341960>
@@ -11,6 +13,16 @@ The Landsat record was last acquired in March of 2023 by B. Steele using the cod
 -   Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30).
 
 -   Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimating the volume and age of water stored in global lakes using a geo-statistical approach. Nature Communications, 7: 13603. <https://doi.org/10.1038/ncomms13603>
+
+# Overaching workflow
+
+If you are reproducing this analysis from start to finish from scratch, the general workflow is:
+
+1) run the scripts in the `GEE_scripts` folder in the Google Earth Engine's UI to acquire the ERA5 data and to calculate the Chebyshev centers of the lake polygons for Guatemala, Honduras, and El Salvador
+2) acquire the Landsat stack data from GEE for specific points -- this is the `landsat_c2/literateCode` and `landsat_c2/forHandoffs` subdirectories. You only need to run the `.Rmd` scripts in these subdirectories, and they can be run in any order.
+3) Run the scripts in the `programs` subdirectory in the numbered order of the scripts. 
+
+Much of the code in this repository was adapted from the repo [ROSSyndicate/ROSS_RS_mini_tools](https://github.com/rossyndicate/ROSS_RS_mini_tools) - and has been focused for the purposes of this project. You may wish to start at the ROSS_RS_mini_tools repo if you are adapting this code base for a different location/purpose. 
 
 # Folders
 
@@ -24,7 +36,7 @@ The Landsat record was last acquired in March of 2023 by B. Steele using the cod
 
 # Setting up the `data` folder symlink
 
-Link the applicable OneDrive folder to the `data` folder in the primary directory - your link will be different than the one in the folder. To link your data folder (basically a fancy shortcut), follow the instructions below where the code blocks are executed in the terminal.
+Link the applicable OneDrive folder to the data folder in the primary directory - your link will be different than the one in the folder (i.e., consider the data folder in this repository a placeholder). To link your data folder (basically a fancy shortcut), follow the instructions below where the code blocks are executed in the terminal.
 
 > [WINDOWS](https://winaero.com/sync-any-folder-onedrive-windows-10/): 
 >

@@ -1,12 +1,12 @@
 # yojoa-rs-secchi/programs
 
-This directory contains the scripts that collate, harmonize, and generally munge the RS, Secchi, and met data into a common file. The programs are numbered in the order that they were originally run.
+This directory contains the scripts that collate, harmonize, and generally munge the RS, Secchi, and meteorological data into a common file. The programs are numbered in the order that they were originally run.
 
 ## Script descriptions
 
 * Script 1_RS_collate_harmonize.Rmd collates and harmonizes the output from GEE for the Yojoa in-lake locations
 
-* 2_Process_Summarize_ERA5.Rmd summarizes the ERA5 met data in 3, 5, and 7 day windows.
+* 2_Process_Summarize_ERA5.Rmd summarizes the ERA5 meteorological data in 3, 5, and 7 day windows.
 
 * 3_regionalRS_collate_harmonize.Rmd: similar to script 1, this script collates and harmonizes GEE output, but here, it does this for the regional set of lakes for the handoff correction
 
