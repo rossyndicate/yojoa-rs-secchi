@@ -10,17 +10,22 @@ library(tidyverse)
 
 #point to directories
 rs_dir = 'data/upstreamRS/'
+
 ```
 
 # Purpose
 
-This script applies the regional hand-off coefficients to the Yojoa LS stack.
+This script applies the Gardener lab US hand-off coefficients to the Yojoa LS stack.
 
 ## Load files
 
 ```{r}
-handoff = read.csv(file.path(rs_dir, 'yojoa_regional_handoff_coefficients_v2023-03-31.csv')) %>% 
-  rename(mission = SatCorr)
+handoff = read.csv(file.path(rs_dir, 'LC02_Corr_Coef.csv')) %>% 
+  mutate(mission = case_when(sat == 'LT05' ~ 'LANDSAT_5',
+                             sat == 'LE07' ~ 'LANDSAT_7',
+                             sat == 'LC08' ~ 'LANDSAT_8',
+                             sat == 'LC09' ~ 'LANDSAT_9',
+                             TRUE ~ ''))
 
 yojoa_rs = read.csv(file.path(rs_dir, 'Yojoa_LandsatC2_SRST_filtered_v2023-03-31.csv'))
 
@@ -46,12 +51,12 @@ Let's re-orient the handoff calcs so that we can just join with the upstream dat
 handoff_h = handoff %>% 
   pivot_longer(names_to = 'coeff',
                values_to = 'value',
-               cols = c('intercept', 'B1', 'B2')) %>% 
+               cols = c('intercept', 'coef1', 'coef2')) %>% 
   pivot_wider(names_from = c('band', 'coeff'),
               values_from = 'value')
 ```
 
-Now join with the rs subset 
+Now join with the rs subset
 
 ```{r}
 yojoa_rs_sub = full_join(yojoa_rs_sub, handoff_h)
@@ -61,18 +66,12 @@ And apply the coefficients, and fill in LS 7 as corrected (all values are correc
 
 ```{r}
 yojoa_rs_sub = yojoa_rs_sub %>% 
-  mutate(med_Blue_corr = med_Blue_intercept + med_Blue_B1*med_Blue + med_Blue_B1*med_Blue^2,
-         med_Red_corr = med_Red_intercept + med_Red_B1*med_Red + med_Red_B1*med_Red^2,
-         med_Green_corr = med_Green_intercept + med_Green_B1*med_Green + med_Green_B1*med_Green^2,
-         med_Nir_corr = med_Nir_intercept + med_Nir_B1*med_Nir + med_Nir_B1*med_Nir^2,
-         med_Swir1_corr = med_Swir1_intercept + med_Swir1_B1*med_Swir1 + med_Swir1_B1*med_Swir1^2,
-         med_Swir2_corr = med_Swir2_intercept + med_Swir2_B1*med_Swir2 + med_Swir2_B1*med_Swir2^2) %>% 
-  mutate(med_Blue_corr = ifelse(mission == 'LANDSAT_7', med_Blue, med_Blue_corr),
-         med_Red_corr = ifelse(mission == 'LANDSAT_7', med_Red, med_Red_corr),
-         med_Green_corr = ifelse(mission == 'LANDSAT_7', med_Green, med_Green_corr),
-         med_Nir_corr = ifelse(mission == 'LANDSAT_7', med_Nir, med_Nir_corr),
-         med_Swir1_corr = ifelse(mission == 'LANDSAT_7', med_Swir1, med_Swir1_corr),
-         med_Swir2_corr = ifelse(mission == 'LANDSAT_7', med_Swir2, med_Swir2_corr))
+  mutate(med_Blue_corr = Blue_intercept + Blue_coef1*med_Blue + Blue_coef2*med_Blue^2,
+         med_Red_corr = Red_intercept + Red_coef1*med_Red + Red_coef2*med_Red^2,
+         med_Green_corr = Green_intercept + Green_coef1*med_Green + Green_coef2*med_Green^2,
+         med_Nir_corr = Nir_intercept + Nir_coef1*med_Nir + Nir_coef2*med_Nir^2,
+         med_Swir1_corr = Swir1_intercept + Swir1_coef1*med_Swir1 + Swir1_coef2*med_Swir1^2,
+         med_Swir2_corr = Swir2_intercept + Swir2_coef1*med_Swir2 + Swir2_coef2*med_Swir2^2) 
 ```
 
 ## Export file
@@ -83,6 +82,5 @@ yojoa_rs_sub %>%
   select(date, location, mission,
          med_Blue_corr:med_Swir2_corr, 
          prop_clouds:SUN_ELEVATION) %>% 
-  write.csv(., file.path('data/upstreamRS/', paste0('yojoa_LandsatC2_SR_rrs_corr_v', Sys.Date(), '.csv')), row.names = F)
+  write.csv(., file.path('data/upstreamRS/', paste0('yojoa_LandsatC2_SR_rrs_us_corr_v', Sys.Date(), '.csv')), row.names = F)
 ```
-
