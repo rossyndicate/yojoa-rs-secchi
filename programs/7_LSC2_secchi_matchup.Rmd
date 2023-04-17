@@ -29,7 +29,7 @@ str(secchi)
 #there are duplicated records in here, remove them
 secchi = secchi[!duplicated(secchi),]
 
-ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-03-31.csv')) %>% 
+ls = read.csv(file.path(coll_dir, 'yojoa_us_corr_rrs_met_v2023-04-17.csv')) %>% 
   mutate(date = as.Date(date)) 
 str(ls)
 ```
@@ -65,9 +65,9 @@ fiveDay_matchups = over_match %>%
 ## Export matchups
 
 ```{r}
-write.csv(sameDay_matchups, file.path(match_dir, paste0('sameDay_LS-Secchi_matchups_n', nrow(sameDay_matchups), '.csv')), row.names = F)
-write.csv(oneDay_matchups, file.path(match_dir, paste0('oneDay_LS-Secchi_matchups_n', nrow(oneDay_matchups), '.csv')), row.names = F)
-write.csv(twoDay_matchups, file.path(match_dir, paste0('twoDay_LS-Secchi_matchups_n', nrow(twoDay_matchups), '.csv')), row.names = F)
-write.csv(threeDay_matchups, file.path(match_dir, paste0('threeDay_LS-Secchi_matchups_n', nrow(threeDay_matchups), '.csv')), row.names = F)
-write.csv(fiveDay_matchups, file.path(match_dir, paste0('fiveDay_LS-Secchi_matchups_n', nrow(fiveDay_matchups), '.csv')), row.names = F)
+write.csv(sameDay_matchups, file.path(match_dir, paste0('sameDay_LS-Secchi_us_matchups_n', nrow(sameDay_matchups), '.csv')), row.names = F)
+write.csv(oneDay_matchups, file.path(match_dir, paste0('oneDay_LS-Secchi_us_matchups_n', nrow(oneDay_matchups), '.csv')), row.names = F)
+write.csv(twoDay_matchups, file.path(match_dir, paste0('twoDay_LS-Secchi_us_matchups_n', nrow(twoDay_matchups), '.csv')), row.names = F)
+write.csv(threeDay_matchups, file.path(match_dir, paste0('threeDay_LS-Secchi_us_matchups_n', nrow(threeDay_matchups), '.csv')), row.names = F)
+write.csv(fiveDay_matchups, file.path(match_dir, paste0('fiveDay_LS-Secchi_us_matchups_n', nrow(fiveDay_matchups), '.csv')), row.names = F)
 ```

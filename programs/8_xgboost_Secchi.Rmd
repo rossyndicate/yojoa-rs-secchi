@@ -26,11 +26,11 @@ This script is a rough draft applying the `xgboost` algorithm to the Yojoa remot
 match = list.files(match_dir)
 
 #load them into the enivronment
-sameDay = read.csv(file.path(match_dir, match[grepl('same', match)]))
-oneDay = read.csv(file.path(match_dir, match[grepl('one', match)]))
-twoDay = read.csv(file.path(match_dir, match[grepl('two', match)]))
-threeDay = read.csv(file.path(match_dir, match[grepl('three', match)]))
-fiveDay = read.csv(file.path(match_dir, match[grepl('five', match)]))
+sameDay = read.csv(file.path(match_dir, match[grepl('same', match)&grepl('us', match)]))
+oneDay = read.csv(file.path(match_dir, match[grepl('one', match)&grepl('us', match)]))
+twoDay = read.csv(file.path(match_dir, match[grepl('two', match)&grepl('us', match)]))
+threeDay = read.csv(file.path(match_dir, match[grepl('three', match)&grepl('us', match)]))
+fiveDay = read.csv(file.path(match_dir, match[grepl('five', match)&grepl('us', match)]))
 
 ```
 
