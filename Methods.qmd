@@ -1,34 +1,51 @@
 ---
 title: "Yojoa Remote Sensing Methods"
+author: B Steele, Matt Ross
 format: html
 editor: visual
 ---
 
 # Methods
 
-## Landsat Stack and Climate Data
+## Landsat Stack
 
-Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. 2021. Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data (described in Supplemental Methods, Collection 1 to Collection 2 Transition). Inter-mission handoff coefficients to normalize Rrs values due to slight changes in sensors and atmospheric correction (as described by Gardner, et al. 2021) between missions were calculated based on Landsat data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods, Regional Handoff Coefficients). Data were acquired using the Google Earth Engine Python API. Climate data were aqcuired from the ERA5 dataset in the Google Earth Engine Code Engine (Gorelick, 2017).
+Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. (2021). Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data to account for differences in scaling factors between collections. Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2). Inter-mission handoff coefficients to standardize Rrs values due to slight changes in sensors and atmospheric correction between missions (Gardner, et al. 2021) were calculated based on Landsat Collection 2 data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods). All Landsat data were acquired using the Google Earth Engine Python Application Programming Interface (API) in RStudio version 2023.03.0, R version 4.2.3 (R Core Team 2023), and Python version 3.8 (Python Software Foundation, <https://www.python.org/>).
+
+## Secchi-RS matchups
+
+Secchi data were matched with records from the Landsat remote sensing stack at a number of time windows: same, one, two, three, and five day windows. Windows up to ±7 days have yielded reasonable results when paired with remote sensing data (Kloiber, et al. 2002).
+
+## Climate Data
+
+Climate data were aqcuired from the ERA5 dataset (Muñoz, 2019) in the Google Earth Engine Code Editor (Gorelick, 2017) from a single data point at the approximate geographical center of Lake Yojoa (14.8768°N, 87.9791°W) for all available data. ERA5 data provide daily modeled values for an extensive list of parameters; however, we only used total precipitation, mean air temperature, total solar radiation, and mean wind speed in our analysis. These data were aggregated for the previous 1 day, 3 days, and 5 days.
 
 ## xgboost Model
+
+We used the R package {xgboost} (Chen, et al. 2023) to develop the best performing gradient tree boost algorithm for these data. The best performing model that balanced matchups and model variance were those built on matchups within a ±5 day window and used ERA5 data from the previous 5 days. Model features were median Rrs values for the blue, green, red and near infrared bands, the ratio of red to green, blue to green, red to blue, green to red, total solar radiation, maximum air temperature, minimum air temperature, total precipitation, and mean wind speed for the previous 5 days.
+
+------------------------------------------------------------------------
+
+# Results
 
 ------------------------------------------------------------------------
 
 # Supplemental Methods
 
-## Collection 1 to Collection 2 Transition
-
-The transition from Collection 1 to Collection 2 was addressed in our workflow by adjusting the offset values to to those specific to Collection 2 (). Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2).
-
 ## Regional Handoff Coefficients
 
-Median Landsat Collection 2 Surface Reflectance values were obtained for the Chebyshev center (Yang, 2020) for all lakes greater than 25 hectacres within or touching the boundaries of the countries of Guatemala, Honduras, and El Salvador from the spatial dataset produced by Messager, et al. 2016.
+Median Landsat Collection 2 Surface Reflectance values were obtained for the Chebyshev center (Yang, 2020) for all lakes greater than 25 hectacres within or touching the boundaries of the countries of Guatemala, Honduras, and El Salvador from the spatial dataset produced by Messager, et al. (2016). Acquisition of these data followed the same methods as those for Lake Yojoa described above.
 
 ------------------------------------------------------------------------
 
-# Citations:
+# Acknowledgements
 
-{packages}
+Landsat Collection 2 Level 2 Science Products courtesy of the U.S. Geological Survey.
+
+# Citations
+
+Chen T, He T, Benesty M, Khotilovich V, Tang Y, Cho H, Chen K, Mitchell R, Cano I, Zhou T, Li M, Xie J, Lin M, Geng
+ Y, Li Y, Yuan J (2023). \_xgboost: Extreme Gradient Boosting\_. R package version 1.7.3.1,
+ \<https://CRAN.R-project.org/package=xgboost\>.
 
 Gardner, J. R., Yang, X., Topp, S. N., Ross, M. R.. V., Altenau, E. H., & Pavelsky, T. M. (2021). The color of rivers. *Geophysical Research Letters*, 48, e2020GL088946. <https://doi.org/10.1029/2020GL088946>
 
@@ -36,11 +53,16 @@ Gorelick, N., Hancher, M., Dixon, M., Ilyushchenko, S., Thau, D., & Moore, R. (2
 
 Jones, J. (2019). Improved automated detection of subpixel-scale inundation-revised dynamic surface water extent (DSWE) Partial surface water tests. Remote Sensing, **11**(4), 374. <https://doi.org/10.3390/rs11040374>
 
+Kloiber, S. M., Brezonik, P. L., Olmanson, L. G., & Bauer, M. E. (2002). A procedure for regional lake water clarity assessment using Landsat multispectral data. *Remote sensing of Environment*, *82*(1), 38-47.
+
 Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30).
 
 Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimating the volume and age of water stored in global lakes using a geo-statistical approach. Nature Communications, 7: 13603. https://doi.org/10.1038/ncomms13603
 
 Masek, J.G., Vermote, E.F., Saleous N.E., Wolfe, R., Hall, F.G., Huemmrich, K.F., Gao, F., Kutler, J., and Lim, T-K. (2006). A Landsat surface reflectance dataset for North America, 1990--2000. IEEE Geoscience and Remote Sensing Letters 3(1):68-72. <http://dx.doi.org/10.1109/LGRS.2005.857030>.
+
+R Core Team (2023). R: A language and environment for statistical computing. R Foundation for Statistical Computing,
+ Vienna, Austria. URL https://www.R-project.org/.
 
 Topp, S. N., Pavelsky, T. M., Dugan, H. A., Yang, X., Gardner, J., & Ross, M. R. V. (2021). Shifting patterns of summer lake color phenology in over 26,000 US lakes. *Water Resources Research*, 57, e2020WR029123. <https://doi.org/10.1029/2020WR029123>
 
