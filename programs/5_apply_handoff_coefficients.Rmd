@@ -51,7 +51,7 @@ handoff_h = handoff %>%
               values_from = 'value')
 ```
 
-Now join with the rs subset 
+Now join with the rs subset
 
 ```{r}
 yojoa_rs_sub = full_join(yojoa_rs_sub, handoff_h)
@@ -61,12 +61,12 @@ And apply the coefficients, and fill in LS 7 as corrected (all values are correc
 
 ```{r}
 yojoa_rs_sub = yojoa_rs_sub %>% 
-  mutate(med_Blue_corr = med_Blue_intercept + med_Blue_B1*med_Blue + med_Blue_B1*med_Blue^2,
-         med_Red_corr = med_Red_intercept + med_Red_B1*med_Red + med_Red_B1*med_Red^2,
-         med_Green_corr = med_Green_intercept + med_Green_B1*med_Green + med_Green_B1*med_Green^2,
-         med_Nir_corr = med_Nir_intercept + med_Nir_B1*med_Nir + med_Nir_B1*med_Nir^2,
-         med_Swir1_corr = med_Swir1_intercept + med_Swir1_B1*med_Swir1 + med_Swir1_B1*med_Swir1^2,
-         med_Swir2_corr = med_Swir2_intercept + med_Swir2_B1*med_Swir2 + med_Swir2_B1*med_Swir2^2) %>% 
+  mutate(med_Blue_corr = med_Blue_intercept + med_Blue_B1*med_Blue + med_Blue_B2*med_Blue^2,
+         med_Red_corr = med_Red_intercept + med_Red_B1*med_Red + med_Red_B2*med_Red^2,
+         med_Green_corr = med_Green_intercept + med_Green_B1*med_Green + med_Green_B2*med_Green^2,
+         med_Nir_corr = med_Nir_intercept + med_Nir_B1*med_Nir + med_Nir_B2*med_Nir^2,
+         med_Swir1_corr = med_Swir1_intercept + med_Swir1_B2*med_Swir1 + med_Swir1_B1*med_Swir1^2,
+         med_Swir2_corr = med_Swir2_intercept + med_Swir2_B2*med_Swir2 + med_Swir2_B1*med_Swir2^2) %>% 
   mutate(med_Blue_corr = ifelse(mission == 'LANDSAT_7', med_Blue, med_Blue_corr),
          med_Red_corr = ifelse(mission == 'LANDSAT_7', med_Red, med_Red_corr),
          med_Green_corr = ifelse(mission == 'LANDSAT_7', med_Green, med_Green_corr),
@@ -85,4 +85,3 @@ yojoa_rs_sub %>%
          prop_clouds:SUN_ELEVATION) %>% 
   write.csv(., file.path('data/upstreamRS/', paste0('yojoa_LandsatC2_SR_rrs_corr_v', Sys.Date(), '.csv')), row.names = F)
 ```
-
