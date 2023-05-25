@@ -1,0 +1,49 @@
+---
+title: "Yojoa Remote Sensing Methods"
+format: html
+editor: visual
+---
+
+# Methods
+
+## Landsat Stack and Climate Data
+
+Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. 2021. Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data (described in Supplemental Methods, Collection 1 to Collection 2 Transition). Inter-mission handoff coefficients to normalize Rrs values due to slight changes in sensors and atmospheric correction (as described by Gardner, et al. 2021) between missions were calculated based on Landsat data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods, Regional Handoff Coefficients). Data were acquired using the Google Earth Engine Python API. Climate data were aqcuired from the ERA5 dataset in the Google Earth Engine Code Engine (Gorelick, 2017).
+
+## xgboost Model
+
+------------------------------------------------------------------------
+
+# Supplemental Methods
+
+## Collection 1 to Collection 2 Transition
+
+The transition from Collection 1 to Collection 2 was addressed in our workflow by adjusting the offset values to to those specific to Collection 2 (). Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2).
+
+## Regional Handoff Coefficients
+
+Median Landsat Collection 2 Surface Reflectance values were obtained for the Chebyshev center (Yang, 2020) for all lakes greater than 25 hectacres within or touching the boundaries of the countries of Guatemala, Honduras, and El Salvador from the spatial dataset produced by Messager, et al. 2016.
+
+------------------------------------------------------------------------
+
+# Citations:
+
+{packages}
+
+Gardner, J. R., Yang, X., Topp, S. N., Ross, M. R.. V., Altenau, E. H., & Pavelsky, T. M. (2021). The color of rivers. *Geophysical Research Letters*, 48, e2020GL088946. <https://doi.org/10.1029/2020GL088946>
+
+Gorelick, N., Hancher, M., Dixon, M., Ilyushchenko, S., Thau, D., & Moore, R. (2017). Google Earth Engine: Planetary-scale geospatial analysis for everyone. *Remote sensing of Environment*, *202*, 18-27.
+
+Jones, J. (2019). Improved automated detection of subpixel-scale inundation-revised dynamic surface water extent (DSWE) Partial surface water tests. Remote Sensing, **11**(4), 374. <https://doi.org/10.3390/rs11040374>
+
+Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30).
+
+Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimating the volume and age of water stored in global lakes using a geo-statistical approach. Nature Communications, 7: 13603. https://doi.org/10.1038/ncomms13603
+
+Masek, J.G., Vermote, E.F., Saleous N.E., Wolfe, R., Hall, F.G., Huemmrich, K.F., Gao, F., Kutler, J., and Lim, T-K. (2006). A Landsat surface reflectance dataset for North America, 1990--2000. IEEE Geoscience and Remote Sensing Letters 3(1):68-72. <http://dx.doi.org/10.1109/LGRS.2005.857030>.
+
+Topp, S. N., Pavelsky, T. M., Dugan, H. A., Yang, X., Gardner, J., & Ross, M. R. V. (2021). Shifting patterns of summer lake color phenology in over 26,000 US lakes. *Water Resources Research*, 57, e2020WR029123. <https://doi.org/10.1029/2020WR029123>
+
+Vermote, E., Justice, C., Claverie, M., & Franch, B. (2016). Preliminary analysis of the performance of the Landsat 8/OLI land surface reflectance product. Remote Sensing of Environment. <http://dx.doi.org/10.1016/j.rse.2016.04.008>.
+
+Yang, Xiao. (2020). Deepest point calculation for any given polygon using Google Earth Engine JavaScript API (Version v2). Zenodo. https://doi.org/10.5281/zenodo.6341960
