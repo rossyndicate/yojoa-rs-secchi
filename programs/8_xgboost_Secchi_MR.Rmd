@@ -3,9 +3,15 @@ title: "xgboost algorithm for Secchi"
 author: "B Steele w/Edits from Matt Ross"
 date: "2023-05-25"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, comment = FALSE, message = FALSE,
+                      cache = TRUE)
+
 library(tidyverse)
 library(xgboost)
 library(Metrics)
@@ -13,23 +19,21 @@ library(ggpmisc)
 
 match_dir = 'data/matchups/'
 model_dir = 'data/models/'
-
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, comment = FALSE, message = FALSE,
-                      cache = TRUE)
-
 ```
 
 # Purpose
 
-The original purpose of this script is to apply applying the `xgboost` algorithm 
-to Remote Sensing Imagery of Lake Yojoa in Honduras, to estimate Yojoa water clarity. 
-You can read more about this lake [here](https://www.sciencedirect.com/science/article/pii/S0048969722015479). We
-have slightly adopted the code to become a teaching demo on how to use machine learning
-algorithms. We also use a myriad of climate covariates 
-from the ERA5 climate data in this analysis.
+The original purpose of this script is to apply applying the `xgboost`
+algorithm to Remote Sensing Imagery of Lake Yojoa in Honduras, to
+estimate Yojoa water clarity. You can read more about this lake
+[here](https://www.sciencedirect.com/science/article/pii/S0048969722015479).
+We have slightly adopted the code to become a teaching demo on how to
+use machine learning algorithms. We also use a myriad of climate
+covariates from the ERA5 climate data in this analysis.
 
-You can read more about xgboost all over the internet, but I like the 
-kaggle [demo](https://www.kaggle.com/code/rtatman/machine-learning-with-xgboost-in-r/notebook)
+You can read more about xgboost all over the internet, but I like the
+kaggle
+[demo](https://www.kaggle.com/code/rtatman/machine-learning-with-xgboost-in-r/notebook)
 
 ## Load matchup data
 
@@ -37,11 +41,11 @@ kaggle [demo](https://www.kaggle.com/code/rtatman/machine-learning-with-xgboost-
 #list all the files in the match directory
 match = list.files(match_dir)
 
-#load the three day matchup file. 
-sameDay = read.csv(file.path(match_dir, match[grepl('same', match)]))
-oneDay = read.csv(file.path(match_dir, match[grepl('one', match)]))
-threeDay = read.csv(file.path(match_dir, match[grepl('three', match)]))
-fiveDay = read.csv(file.path(match_dir, match[grepl('five', match)]))
+#load the matchup files 
+sameDay = read.csv(file.path(match_dir, match[grepl('same', match) & !grepl('us', match)]))
+oneDay = read.csv(file.path(match_dir, match[grepl('one', match) & !grepl('us', match)]))
+threeDay = read.csv(file.path(match_dir, match[grepl('three', match) & !grepl('us', match)]))
+fiveDay = read.csv(file.path(match_dir, match[grepl('five', match) & !grepl('us', match)]))
 
 
 ```
@@ -71,22 +75,23 @@ threeDay <- prepData(threeDay)
 fiveDay <- prepData(fiveDay)
 ```
 
-We want to predict the `secchi` value in these datasets, so let's set the `target` as that variable:
+We want to predict the `secchi` value in these datasets, so let's set
+the `target` as that variable:
 
 ```{r}
 ## Identify our target (value is secchi)
 target <- 'secchi'
 ```
 
-
-
 ## Quick xgboost run on fiveDay matchups
 
-Let's see what happens if we loosen our time restraint and add more matchups into the mix
+Let's see what happens if we loosen our time restraint and add more
+matchups into the mix
 
 ### Make test and training sets
 
-For the same day matchup dataset, let's grab 20% of the data as the 'test' set and the remainder as the training set.
+For the same day matchup dataset, let's grab 20% of the data as the
+'test' set and the remainder as the training set.
 
 ```{r}
 # Set random seed
@@ -103,10 +108,12 @@ hist(train_fiveDay$secchi)
 hist(test_fiveDay$secchi)
 ```
 
-
 ## Add in the met data with the five day matchups
 
-Let's see what happens if we add in the ERA5 met data. For this example, we'll use the 5-day summaries, meaning we've summarized the met data as the mean of the previous 5 days. Since we already made the training/test datasets, let's stick with those, but name new features.
+Let's see what happens if we add in the ERA5 met data. For this example,
+we'll use the 5-day summaries, meaning we've summarized the met data as
+the mean of the previous 5 days. Since we already made the training/test
+datasets, let's stick with those, but name new features.
 
 ### xgboost on band data and all the 5-day met data
 
@@ -154,7 +161,7 @@ xgb_naive_fd_bm5 <- xgb.train(params = params,
                              maximize = F)
 ```
 
-Okay, the train and test are still pretty far apart (which means we're overfitted), but let's look at the data anyway
+Let's look at the summary statistics for this model.
 
 ```{r}
 
@@ -192,7 +199,10 @@ ggplot(preds_fd_bm5, aes(x = secchi, y = predicted_fd_bm5)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
-This generally looks better than before (our adjusted r-squared is higher that without the met data) AND it's better than the one-day matchups. Let's play around with the hyper parameters and see what happens...
+This generally looks better than before (our adjusted r-squared is
+higher that without the met data) AND it's better than the one-day
+matchups. Let's play around with the hyper parameters and see what
+happens...
 
 ### Try some different hyperparmeters
 
@@ -234,9 +244,6 @@ evals_fd_bm5_play <- preds_fd_bm5_play %>%
 evals_fd_bm5_play
 
 ```
-
-
-
 
 And let's visualize the predictions:
 
