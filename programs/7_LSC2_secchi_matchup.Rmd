@@ -72,6 +72,7 @@ fiveDay_matchups = over_match %>%
   group_by(obs_date, location) %>% 
   summarize_all(first)
 
+#per local knowledge, oct and nov can have very immediate changes, and things are pretty stable otherwise.
 multi_match = over_match %>% 
   mutate(month = format(obs_date, '%m')) %>% 
   filter((month %in% c(10,11) & abs(date_diff) < days(1) |
