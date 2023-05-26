@@ -17,39 +17,31 @@ match_dir = 'data/matchups/'
 
 ```{r, include = F}
 stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv'))
-match = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n256.csv'))
+match = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
 
 ls5_tot = stack %>% 
-  filter(mission == 'LANDSAT_5') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_5') 
 
 ls7_tot = stack %>% 
-  filter(mission == 'LANDSAT_7') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_7') 
 
 ls8_tot = stack %>% 
-  filter(mission == 'LANDSAT_8') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_8') 
 
 ls9_tot = stack %>% 
-  filter(mission == 'LANDSAT_9') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_9') 
 
 ls5_match = match %>% 
-  filter(mission == 'LANDSAT_5') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_5')
 
 ls7_match = match %>% 
-  filter(mission == 'LANDSAT_7') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_7') 
 
 ls8_match = match %>% 
-  filter(mission == 'LANDSAT_8') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_8') 
 
 ls9_match = match %>% 
-  filter(mission == 'LANDSAT_9') %>% 
-  distinct(system.index)
+  filter(mission == 'LANDSAT_9') 
 
 ```
 
@@ -57,19 +49,19 @@ ls9_match = match %>%
 
 Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. (2021). The Landsat stack was comprised of `r length(unique(stack$system.index))` unique scenes comprised of data from Landsat 5, 7, 8, and 9 (Table 1). Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data to account for differences in scaling factors between collections. Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2). Inter-mission handoff coefficients to standardize Rrs values due to slight changes in sensors and atmospheric correction between missions (Gardner, et al. 2021) were calculated based on Landsat Collection 2 data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods). All Landsat data were acquired using the Google Earth Engine Python Application Programming Interface (API) in RStudio version 2023.03.0, R version 4.2.3 (R Core Team 2023), and Python version 3.8 (Python Software Foundation, <https://www.python.org/>).
 
-| Landsat Mission | Number of Unique Scenes                | Number of Unique Scenes with ±5 day matchups |     |
-|-------------------|--------------------|--------------------------------|--|
-| Landsat 5       | `r nrow(ls5_tot)`                      | `r nrow(ls5_match)`                          |     |
-| Landsat 7       | `r nrow(ls7_tot)`                      | `r nrow(ls7_match)`                          |     |
-| Landsat 8       | `r nrow(ls8_tot)`                      | `r nrow(ls8_match)`                          |     |
-| Landsat 9       | `r nrow(ls9_tot)`                      | `r nrow(ls9_match)`                          |     |
-| Total           | `r length(unique(stack$system.index))` | `r nrow(match)`                              |     |
+| Landsat Mission | Number of Unique Scenes                  | Number of Unique Scenes with ±5 day matchups | Total number of Available Landsat-Location overpasses | Total number of Landsat-*in situ* Secchi matches |
+|---------------|---------------|---------------|---------------|---------------|
+| Landsat 5       | `r length(unique(ls5_tot$system.index))` | `r length(unique(ls5_match$system.index))`   | `r nrow(ls5_tot)`                                     | `r nrow(ls5_match)`                              |
+| Landsat 7       | `r length(unique(ls7_tot$system.index))` | `r length(unique(ls7_match$system.index))`   | `r nrow(ls7_tot)`                                     | `r nrow(ls7_match)`                              |
+| Landsat 8       | `r length(unique(ls8_tot$system.index))` | `r length(unique(ls8_match$system.index))`   | `r nrow(ls8_tot)`                                     | `r nrow(ls8_match)`                              |
+| Landsat 9       | `r length(unique(ls9_tot$system.index))` | `r length(unique(ls9_match$system.index))`   | `r nrow(ls9_tot)`                                     | `r nrow(ls9_match)`                              |
+| Total           | `r length(unique(stack$system.index))`   | `r length(unique(match$syste.index))`        | `r nrow(stack)`                                       | `r nrow(match)`                                  |
 
 : Table 1
 
 ## Secchi-RS matchups
 
-Secchi data were matched with records from the Landsat remote sensing stack at a number of time windows: same, one, two, three, and five day windows. Windows up to ±7 days have yielded reasonable results when paired with remote sensing data (Kloiber, et al. 2002).
+Secchi data were matched with records from the Landsat remote sensing stack at a number of time windows: same, one, two, three, and five day windows. Windows up to ±7 days have yielded reasonable results when paired with remote sensing data (Kloiber, et al. 2002). We avoided discrete over-matching of our data by assuring that each satellite overpass instance was only paired with the nearest-in-time Secchi measurement and that each discrete Secchi measurement was only paired with a single, nearest-in-time valid satellite overpass.
 
 ## Climate Data
 

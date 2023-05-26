@@ -47,29 +47,44 @@ And now we can move out from there:
 over_match = secchi %>% 
   rename(obs_date = date) %>% 
   full_join(ls, secchi, by = 'location') %>% 
-  mutate(date_diff = obs_date-date) #calculate the time difference
+  mutate(date_diff = obs_date-date) %>%  #calculate the time difference
+  relocate(obs_date, date, location, date_diff)
 
+# in order to not overmatch on either the in-situ location or the satellite (we want distinct, closest matches for each of these) we need to iteratively summarize to the closest match per satellite per observation data and location, then limit only one satelite image per location and flyover date
 oneDay_matchups = over_match %>% 
   filter(abs(date_diff) <= days(1))%>% 
   arrange(abs(date_diff)) %>% 
-  group_by(obs_date, location) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
   summarize_all(first)
 twoDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(2))
+  filter(abs(date_diff) <= days(2))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 threeDay_matchups = over_match %>% 
   filter(abs(date_diff) <= days(3))%>% 
   arrange(abs(date_diff)) %>% 
-  group_by(obs_date, location) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
   summarize_all(first)
 fourDay_matchups = over_match %>% 
   filter(abs(date_diff) <= days(4))%>% 
   arrange(abs(date_diff)) %>% 
-  group_by(obs_date, location) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
   summarize_all(first)
 fiveDay_matchups = over_match %>% 
   filter(abs(date_diff) <= days(5))%>% 
   arrange(abs(date_diff)) %>% 
-  group_by(obs_date, location) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first) %>% 
+  group_by(date, location) %>% 
   summarize_all(first)
 
 #per local knowledge, oct and nov can have very immediate changes, and things are pretty stable otherwise.
@@ -78,7 +93,9 @@ multi_match = over_match %>%
   filter((month %in% c(10,11) & abs(date_diff) < days(1) |
             !(month %in% c(10,11)) & abs(date_diff) < days(7))) %>% 
   arrange(abs(date_diff)) %>% 
-  group_by(obs_date, location) %>% 
+  group_by(date, location) %>% 
+  summarize_all(first) %>% 
+  group_by(date, location) %>% 
   summarize_all(first)
 ```
 
