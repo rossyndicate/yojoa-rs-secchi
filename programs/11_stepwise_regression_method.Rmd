@@ -1,0 +1,129 @@
+---
+title: "Stepwise Regression Method"
+author: "B Steele"
+date: "2023-05-26"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(caret)
+library(leaps)
+
+match_dir = 'data/matchups/'
+rs_dir = 'data/upstreamRS/'
+is_dir = 'data/in-situ/'
+```
+
+# Purpose
+
+This script uses stepwise regression as an alternative modeling approach for the Lake Yojoa Secchi data.
+
+## Load data
+
+```{r}
+match = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
+stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv'))
+secchi = read.csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
+  mutate(secchi = as.numeric(secchi),
+         date = mdy(date)) %>% 
+  filter(!is.na(secchi))
+```
+
+## Prep data
+
+```{r}
+prepData = function(df) {
+  #make a rowid column
+  df_prep = df %>% 
+    rowid_to_column() %>% 
+    mutate(secchi = as.numeric(secchi)) %>% #there's one wonky value in here with two decimal points... dropping from this analysis
+    filter(!is.na(secchi))
+  
+  #Add ratios then trim to needd to columns to speed up run
+  df_prep %>% 
+    mutate(RN= med_Red_corr/med_Nir_corr,
+           BG= med_Blue_corr/med_Green_corr,
+           RB= med_Red_corr/med_Blue_corr,
+           GB = med_Green_corr/med_Blue_corr)
+}
+
+match = prepData(match)
+stack = stack %>% 
+  mutate(RN= med_Red_corr/med_Nir_corr,
+         BG= med_Blue_corr/med_Green_corr,
+         RB= med_Red_corr/med_Blue_corr,
+         GB = med_Green_corr/med_Blue_corr) %>% 
+  filter(date < as.Date('2023-01-01'))
+```
+
+Make train/test split
+
+```{r}
+# Set seed for reproducibility
+set.seed(815)
+
+##Pull 20% as holdout test data
+test_match <- match %>%
+  sample_frac(.2) 
+
+## Remove holdout data
+train_match <- match %>% filter(!rowid %in% test_match$rowid) 
+```
+
+Point to vars for model, subset df for those vars
+
+```{r}
+vars = c('secchi',
+         'med_Blue_corr', 'med_Red_corr', 'med_Green_corr', 
+         'med_Nir_corr',
+         'RN', 'BG', 'RB', 'GB', 
+         "tot_sol_rad_KJpm2_5", "max_temp_degK_5", "min_temp_degK_5",
+         "tot_precip_m_5", "mean_wind_mps_5")
+
+#subset for only vars for modeling
+train_match_sub = train_match %>% select(vars)
+```
+
+And run the model
+
+```{r}
+
+# Set up repeated k-fold cross-validation
+train.control <- trainControl(method = "cv", number = 5)
+
+# Train the model
+step.model <- train(secchi ~ ., data = train_match_sub,
+                    method = "leapBackward", 
+                    tuneGrid = data.frame(nvmax = 1:13),
+                    trControl = train.control
+                    )
+step.model$results
+summary(step.model$finalModel)
+```
+
+And then predict
+
+```{r}
+test_match$predicted = predict.train(step.model, test_match)
+
+ggplot(test_match, aes(x = secchi, y = predicted)) +
+  geom_point()
+```
+
+And take a peek at the timeseries
+
+```{r}
+stack = stack %>% 
+  mutate(secchi = predict.train(object = step.model, newdata = stack)) %>% 
+  mutate(date = ymd(date))
+secchi = secchi %>% 
+  mutate(mission = 'Measured')
+
+stack_hist = full_join(stack, secchi)
+
+ggplot(stack_hist, aes(x = date, y = secchi)) +
+  geom_point(aes(color = mission), alpha = 0.5) +
+  theme_bw() +
+  scale_color_colorblind()
+```
