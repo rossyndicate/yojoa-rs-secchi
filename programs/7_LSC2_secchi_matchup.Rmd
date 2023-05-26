@@ -1,7 +1,7 @@
 ---
 title: "2_LSC2_secchi_matchup"
 author: "B Steele"
-date: "2023-03-03"
+date: "2023-05-26"
 output: html_document
 ---
 
@@ -50,16 +50,35 @@ over_match = secchi %>%
   mutate(date_diff = obs_date-date) #calculate the time difference
 
 oneDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(1))
+  filter(abs(date_diff) <= days(1))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location) %>% 
+  summarize_all(first)
 twoDay_matchups = over_match %>% 
   filter(abs(date_diff) <= days(2))
 threeDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(3))
+  filter(abs(date_diff) <= days(3))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location) %>% 
+  summarize_all(first)
 fourDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(4))
+  filter(abs(date_diff) <= days(4))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location) %>% 
+  summarize_all(first)
 fiveDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(5))
+  filter(abs(date_diff) <= days(5))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location) %>% 
+  summarize_all(first)
 
+multi_match = over_match %>% 
+  mutate(month = format(obs_date, '%m')) %>% 
+  filter((month %in% c(10,11) & abs(date_diff) < days(1) |
+            !(month %in% c(10,11)) & abs(date_diff) < days(7))) %>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location) %>% 
+  summarize_all(first)
 ```
 
 ## Export matchups
@@ -70,4 +89,5 @@ write.csv(oneDay_matchups, file.path(match_dir, paste0('oneDay_LS-Secchi_matchup
 write.csv(twoDay_matchups, file.path(match_dir, paste0('twoDay_LS-Secchi_matchups_n', nrow(twoDay_matchups), '.csv')), row.names = F)
 write.csv(threeDay_matchups, file.path(match_dir, paste0('threeDay_LS-Secchi_matchups_n', nrow(threeDay_matchups), '.csv')), row.names = F)
 write.csv(fiveDay_matchups, file.path(match_dir, paste0('fiveDay_LS-Secchi_matchups_n', nrow(fiveDay_matchups), '.csv')), row.names = F)
+write.csv(multi_match, file.path(match_dir, paste0('jemma_multiDay_LS-Secchi_matchups_n', nrow(multi_match), '.csv')), row.names = F)
 ```
