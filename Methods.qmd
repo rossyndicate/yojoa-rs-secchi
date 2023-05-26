@@ -5,11 +5,67 @@ format: html
 editor: visual
 ---
 
+```{r, include = F}
+library(tidyverse)
+library(ggthemes)
+
+rs_dir = 'data/upstreamRS/'
+match_dir = 'data/matchups/'
+```
+
 # Methods
+
+```{r, include = F}
+stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv'))
+match = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n256.csv'))
+
+ls5_tot = stack %>% 
+  filter(mission == 'LANDSAT_5') %>% 
+  distinct(system.index)
+
+ls7_tot = stack %>% 
+  filter(mission == 'LANDSAT_7') %>% 
+  distinct(system.index)
+
+ls8_tot = stack %>% 
+  filter(mission == 'LANDSAT_8') %>% 
+  distinct(system.index)
+
+ls9_tot = stack %>% 
+  filter(mission == 'LANDSAT_9') %>% 
+  distinct(system.index)
+
+ls5_match = match %>% 
+  filter(mission == 'LANDSAT_5') %>% 
+  distinct(system.index)
+
+ls7_match = match %>% 
+  filter(mission == 'LANDSAT_7') %>% 
+  distinct(system.index)
+
+ls8_match = match %>% 
+  filter(mission == 'LANDSAT_8') %>% 
+  distinct(system.index)
+
+ls9_match = match %>% 
+  filter(mission == 'LANDSAT_9') %>% 
+  distinct(system.index)
+
+```
 
 ## Landsat Stack
 
-Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. (2021). Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data to account for differences in scaling factors between collections. Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2). Inter-mission handoff coefficients to standardize Rrs values due to slight changes in sensors and atmospheric correction between missions (Gardner, et al. 2021) were calculated based on Landsat Collection 2 data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods). All Landsat data were acquired using the Google Earth Engine Python Application Programming Interface (API) in RStudio version 2023.03.0, R version 4.2.3 (R Core Team 2023), and Python version 3.8 (Python Software Foundation, <https://www.python.org/>).
+Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. (2021). The Landsat stack was comprised of `r length(unique(stack$system.index))` unique scenes comprised of data from Landsat 5, 7, 8, and 9 (Table 1). Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data to account for differences in scaling factors between collections. Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2). Inter-mission handoff coefficients to standardize Rrs values due to slight changes in sensors and atmospheric correction between missions (Gardner, et al. 2021) were calculated based on Landsat Collection 2 data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods). All Landsat data were acquired using the Google Earth Engine Python Application Programming Interface (API) in RStudio version 2023.03.0, R version 4.2.3 (R Core Team 2023), and Python version 3.8 (Python Software Foundation, <https://www.python.org/>).
+
+| Landsat Mission | Number of Unique Scenes                | Number of Unique Scenes with ±5 day matchups |     |
+|-------------------|--------------------|--------------------------------|--|
+| Landsat 5       | `r nrow(ls5_tot)`                      | `r nrow(ls5_match)`                          |     |
+| Landsat 7       | `r nrow(ls7_tot)`                      | `r nrow(ls7_match)`                          |     |
+| Landsat 8       | `r nrow(ls8_tot)`                      | `r nrow(ls8_match)`                          |     |
+| Landsat 9       | `r nrow(ls9_tot)`                      | `r nrow(ls9_match)`                          |     |
+| Total           | `r length(unique(stack$system.index))` | `r nrow(match)`                              |     |
+
+: Table 1
 
 ## Secchi-RS matchups
 
@@ -43,9 +99,7 @@ Landsat Collection 2 Level 2 Science Products courtesy of the U.S. Geological Su
 
 # Citations
 
-Chen T, He T, Benesty M, Khotilovich V, Tang Y, Cho H, Chen K, Mitchell R, Cano I, Zhou T, Li M, Xie J, Lin M, Geng
- Y, Li Y, Yuan J (2023). \_xgboost: Extreme Gradient Boosting\_. R package version 1.7.3.1,
- \<https://CRAN.R-project.org/package=xgboost\>.
+Chen T, He T, Benesty M, Khotilovich V, Tang Y, Cho H, Chen K, Mitchell R, Cano I, Zhou T, Li M, Xie J, Lin M, Geng Y, Li Y, Yuan J (2023). \_xgboost: Extreme Gradient Boosting\_. R package version 1.7.3.1, \<https://CRAN.R-project.org/package=xgboost\>.
 
 Gardner, J. R., Yang, X., Topp, S. N., Ross, M. R.. V., Altenau, E. H., & Pavelsky, T. M. (2021). The color of rivers. *Geophysical Research Letters*, 48, e2020GL088946. <https://doi.org/10.1029/2020GL088946>
 
@@ -61,8 +115,7 @@ Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimatin
 
 Masek, J.G., Vermote, E.F., Saleous N.E., Wolfe, R., Hall, F.G., Huemmrich, K.F., Gao, F., Kutler, J., and Lim, T-K. (2006). A Landsat surface reflectance dataset for North America, 1990--2000. IEEE Geoscience and Remote Sensing Letters 3(1):68-72. <http://dx.doi.org/10.1109/LGRS.2005.857030>.
 
-R Core Team (2023). R: A language and environment for statistical computing. R Foundation for Statistical Computing,
- Vienna, Austria. URL https://www.R-project.org/.
+R Core Team (2023). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
 
 Topp, S. N., Pavelsky, T. M., Dugan, H. A., Yang, X., Gardner, J., & Ross, M. R. V. (2021). Shifting patterns of summer lake color phenology in over 26,000 US lakes. *Water Resources Research*, 57, e2020WR029123. <https://doi.org/10.1029/2020WR029123>
 
