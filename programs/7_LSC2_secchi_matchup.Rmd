@@ -34,6 +34,21 @@ ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv')) %>%
 str(ls)
 ```
 
+## Normalize the SR and met data
+
+While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for comparison with the stepwise regression method.
+
+```{r}
+ls = ls %>% 
+  mutate(across(c(med_Blue_corr:med_Swir2_corr, tot_sol_rad_KJpm2_3:mean_wind_mps_7),
+                scale, 
+                .names = "{col}_scaled")) 
+names(ls)
+
+```
+
+# Create matchups
+
 And join them together (this is the list of 1:1 matchups)
 
 ```{r}
