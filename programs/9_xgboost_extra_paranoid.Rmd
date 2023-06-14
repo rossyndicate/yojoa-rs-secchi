@@ -270,7 +270,7 @@ mod_summary_5d_5m <- xgboost_hypertune_5d_5m %>%
 
 best_mod_5d_5m <- xgboost_hypertune_5d_5m[xgboost_hypertune_5d_5m$val_loss==min(xgboost_hypertune_5d_5m$val_loss),]
 
-save(mod_summary_5d_5m,best_mod_5d_5m, file = 'data/models/paramsxg_val_5d_5m.RData')
+save(mod_summary_5d_5m,best_mod_5d_5m, file = 'data/models/paramsxg_ep_val_5d_5m.RData')
 
 ```
 
@@ -290,7 +290,7 @@ mod_summary_5d_3m <- xgboost_hypertune_5d_3m %>%
 
 best_mod_5d_3m <- xgboost_hypertune_5d_3m[xgboost_hypertune_5d_3m$val_loss==min(xgboost_hypertune_5d_3m$val_loss),]
 
-save(mod_summary_5d_3m,best_mod_5d_3m, file = 'data/models/paramsxg_val_5d_3m.RData')
+save(mod_summary_5d_3m,best_mod_5d_3m, file = 'data/models/paramsxg_ep_val_5d_3m.RData')
 ```
 
 ### Jemma-special, 5 day met
@@ -309,7 +309,7 @@ mod_summary_jd_5m <- xgboost_hypertune_jd_5m %>%
 
 best_mod_jd_5m <- xgboost_hypertune_jd_5m[xgboost_hypertune_jd_5m$val_loss==min(xgboost_hypertune_jd_5m$val_loss),]
 
-save(mod_summary_jd_5m,best_mod_jd_5m, file = 'data/models/paramsxg_val_jd_5m.RData')
+save(mod_summary_jd_5m,best_mod_jd_5m, file = 'data/models/paramsxg_ep_val_jd_5m.RData')
 ```
 
 ### Jemma-special, 3 day met
@@ -328,7 +328,7 @@ mod_summary_jd_3m <- xgboost_hypertune_jd_3m %>%
 
 best_mod_jd_3m <- xgboost_hypertune_jd_3m[xgboost_hypertune_jd_3m$val_loss==min(xgboost_hypertune_jd_3m$val_loss),]
 
-save(mod_summary_jd_3m,best_mod_jd_3m, file = 'data/models/paramsxg_val_jd_3m.RData')
+save(mod_summary_jd_3m,best_mod_jd_3m, file = 'data/models/paramsxg_ep_val_jd_3m.RData')
 ```
 
 # Model Assessment and Application
@@ -336,10 +336,10 @@ save(mod_summary_jd_3m,best_mod_jd_3m, file = 'data/models/paramsxg_val_jd_3m.RD
 ### load model summaries
 
 ```{r}
-load('data/models/paramsxg_val_5d_5m.RData')
-load('data/models/paramsxg_val_5d_3m.RData')
-load('data/models/paramsxg_val_jd_5m.RData')
-load('data/models/paramsxg_val_jd_3m.RData')
+load('data/models/paramsxg_ep_val_5d_5m.RData')
+load('data/models/paramsxg_ep_val_5d_3m.RData')
+load('data/models/paramsxg_ep_val_jd_5m.RData')
+load('data/models/paramsxg_ep_val_jd_3m.RData')
 
 ```
 
