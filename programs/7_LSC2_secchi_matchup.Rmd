@@ -30,21 +30,25 @@ str(secchi)
 secchi = secchi[!duplicated(secchi),]
 
 ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv')) %>% 
-  mutate(date = as.Date(date)) 
+  mutate(date = as.Date(date))  %>% 
+  mutate(RN= med_Red_corr/med_Nir_corr,
+           BG= med_Blue_corr/med_Green_corr,
+           RB= med_Red_corr/med_Blue_corr,
+           GB = med_Green_corr/med_Blue_corr)
 str(ls)
 ```
 
 ## Normalize the SR and met data
 
-While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for comparison with the stepwise regression method.
+While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for comparison with the stepwise regression method. Common methods of normalization include scaling and zscores. While most of the data is both non-normally distributed and/or skewed, we'll use min-max scaling to normalize.
 
 ```{r}
 ls = ls %>% 
-  mutate(across(c(med_Blue_corr:med_Swir2_corr, tot_sol_rad_KJpm2_3:wind_speed_mps_prev),
-                scale, 
+  mutate(across(c(med_Blue_corr:med_Swir2_corr, tot_sol_rad_KJpm2_3:wind_speed_mps_prev, RN:GB),
+                list(scaled = ~(. - min(., na.rm = T)) / (max(., na.rm = T) - min(., na.rm = T))), 
                 .names = "{col}_scaled")) 
 names(ls)
-
+write.csv(ls, file.path(coll_dir, paste0('yojoa_corr_rrs_met_scaled_v', Sys.Date(),'.csv')), row.names = F)
 ```
 
 # Create matchups

@@ -1,7 +1,7 @@
 ---
 title: "xgboost algorithm for Secchi - high data stringency"
 author: "B Steele w/Edits from Matt Ross"
-date: "2023-05-25"
+date: "`r Sys.Date()`"
 output: html_document
 editor_options: 
   markdown: 
@@ -51,13 +51,6 @@ prepData = function(df) {
     rowid_to_column() %>% 
     mutate(secchi = as.numeric(secchi)) %>% #there's one wonky value in here with two decimal points... dropping from this analysis
     filter(!is.na(secchi))
-  
-  #Add ratios then trim to needd to columns to speed up run
-  df_prep %>% 
-    mutate(RN= med_Red_corr/med_Nir_corr,
-           BG= med_Blue_corr/med_Green_corr,
-           RB= med_Red_corr/med_Blue_corr,
-           GB = med_Green_corr/med_Blue_corr)
 }
 
 
@@ -363,7 +356,7 @@ hypertune_xgboost = function(train,test, grid){
 
 ### 3 day window, 3 day met hypertuning
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost 3 day window, 3 day met
 xgboost_hypertune_3d_3m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -402,7 +395,7 @@ save(mod_summary_3d_5m,best_mod_3d_5m, file = 'data/models/paramsxg_ep_val_3d_5m
 
 ### 3 day window, 7/1 day met hypertuning
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost 5 day window, 7/1 day met
 xgboost_hypertune_3d_71m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -421,7 +414,7 @@ save(mod_summary_3d_71m,best_mod_3d_71m, file = 'data/models/paramsxg_ep_val_3d_
 
 ### 5 day window, 3 day met hypertuning
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost 5 day window, 3 day met
 xgboost_hypertune_5d_3m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -460,7 +453,7 @@ save(mod_summary_5d_5m,best_mod_5d_5m, file = 'data/models/paramsxg_ep_val_5d_5m
 
 ### 5 day window, 7/1 day met hypertuning
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost 5 day window, 7/1 day met
 xgboost_hypertune_5d_71m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -479,7 +472,7 @@ save(mod_summary_5d_71m,best_mod_5d_71m, file = 'data/models/paramsxg_ep_val_5d_
 
 ### Jemma-special, 3 day met
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost jemma window, 3 day met
 xgboost_hypertune_jd_3m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -498,7 +491,7 @@ save(mod_summary_jd_3m,best_mod_jd_3m, file = 'data/models/paramsxg_ep_val_jd_3m
 
 ### Jemma-special, 5 day met
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost jemma window, 5 day met
 xgboost_hypertune_jd_5m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -517,7 +510,7 @@ save(mod_summary_jd_5m,best_mod_jd_5m, file = 'data/models/paramsxg_ep_val_jd_5m
 
 ### Jemma-special, 7/1 day met
 
-```{r}
+```{r, eval = F}
 ## Hypertune xgboost jemma window, 5 day met
 xgboost_hypertune_jd_71m <- grid_train %>%
   pmap_dfr(function(...) {
@@ -558,16 +551,16 @@ overfit of a model.
 ### Three day window dataset
 
 ```{r}
-head(mod_summary_3d_3m)
-head(mod_summary_3d_5m)
-head(mod_summary_3d_71m)
+(mod_summary_3d_3m)
+(mod_summary_3d_5m)
+(mod_summary_3d_71m)
 ```
 
 ```{r}
 # most of best models are overfit, so looking for train/test RMSE that are closer
-optimized_booster_3d_3m <- mod_summary_3d_3m$mod[3][[1]]
-optimized_booster_3d_5m <- mod_summary_3d_5m$mod[2][[1]]
-optimized_booster_3d_71m <- mod_summary_3d_71m$mod[1][[1]]
+optimized_booster_3d_3m <- mod_summary_3d_3m$mod[4][[1]]
+optimized_booster_3d_5m <- mod_summary_3d_5m$mod[6][[1]]
+optimized_booster_3d_71m <- mod_summary_3d_71m$mod[11][[1]]
 
 # Apply best mod
 preds_3 <- val_3 %>% 
@@ -592,16 +585,16 @@ evals_3
 ### Five day window dataset
 
 ```{r}
-head(mod_summary_5d_3m)
-head(mod_summary_5d_5m)
-head(mod_summary_5d_71m)
+(mod_summary_5d_3m)
+(mod_summary_5d_5m)
+(mod_summary_5d_71m)
 ```
 
 ```{r}
 # most of best models are overfit, so looking for train/test RMSE that are closer
-optimized_booster_5d_3m <- mod_summary_5d_3m$mod[3][[1]]
-optimized_booster_5d_5m <- mod_summary_5d_5m$mod[2][[1]]
-optimized_booster_5d_71m <- mod_summary_5d_71m$mod[1][[1]]
+optimized_booster_5d_3m <- mod_summary_5d_3m$mod[5][[1]]
+optimized_booster_5d_5m <- mod_summary_5d_5m$mod[4][[1]]
+optimized_booster_5d_71m <- mod_summary_5d_71m$mod[7][[1]]
 
 # Apply best mod
 preds_5 <- val_5 %>% 
@@ -626,16 +619,15 @@ evals_5
 ### Jemma-special window dataset
 
 ```{r}
-head(mod_summary_jd_3m)
-head(mod_summary_jd_5m)
-head(mod_summary_jd_71m)
+(mod_summary_jd_3m)
+(mod_summary_jd_5m)
+(mod_summary_jd_71m)
 ```
 
 ```{r}
-# best mod looks good here across the board
-optimized_booster_jd_3m <- mod_summary_jd_3m$mod[1][[1]]
-optimized_booster_jd_5m <- mod_summary_jd_5m$mod[8][[1]]
-optimized_booster_jd_71m <- mod_summary_jd_71m$mod[4][[1]]
+optimized_booster_jd_3m <- mod_summary_jd_3m$mod[15][[1]]
+optimized_booster_jd_5m <- mod_summary_jd_5m$mod[1][[1]]
+optimized_booster_jd_71m <- mod_summary_jd_71m$mod[1][[1]]
 
 # Apply best mod
 preds_jd <- val_j %>% 
@@ -841,7 +833,7 @@ Secchi records to see how the Landsat-derived Secchi estimates look
 alongside the observed data.
 
 ```{r}
-full_stack <- read_csv('data/upstreamRS/yojoa_corr_rrs_met_v2023-06-15.csv') %>%
+full_stack <- read_csv('data/upstreamRS/yojoa_corr_rrs_met_scaled_v2023-06-15.csv') %>%
   mutate(secchi = 100) %>%
   prepData(.) 
 
@@ -932,6 +924,14 @@ ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) +
   scale_x_date(limits = c(as.Date('2018-01-01'), as.Date('2023-01-01')))+
   theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
         plot.subtitle = element_text(hjust = 0.5))
-
-
 ```
+
+### Print off xgboost model feature importance
+
+```{r}
+feat_importance = xgb.importance(feature_names = band_met71_feats,
+               model = optimized_booster_5d_71m)
+
+xgb.plot.importance(feat_importance)
+```
+
