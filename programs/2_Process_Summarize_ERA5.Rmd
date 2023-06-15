@@ -10,6 +10,7 @@ library(tidyverse)
 library(ggthemes)
 library(RcppRoll)
 library(googledrive)
+library(lubridate)
 
 #point to directories
 drv_dir = 'data/fromDrive/'
@@ -17,7 +18,7 @@ era_dir = 'data/era5_met/'
 
 #authenticate drive
 drive_auth()
-1 #this will select the first account option in google drive
+2 #this will select the first account option in google drive
 ```
 
 # Purpose
@@ -66,7 +67,16 @@ era5_sub = era5 %>%
          wind_speed_mps)
 ```
 
-### Summarize data in 3,5,7 day summaries
+### Summarize data in 1,3,5,7 day summaries
+
+Previous day's weather
+```{r}
+previous = era5_sub %>% 
+  mutate(date = date + days(1)) %>% 
+  rename_with(~paste0(., '_prev'),
+              c('solar_rad_Jpm2', 'precip_m', 'air_temp_degK', 'wind_speed_mps'))
+```
+
 
 Previous 3 days summary
 
@@ -101,14 +111,18 @@ sevenday$tot_precip_m_7 = roll_sum(x  = era5_sub$precip_m, align = 'right', 7)
 sevenday$mean_wind_mps_7 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 7)
 ```
 
-Join them together and save the file
+Join them together, adjust date so that all cumulative data are prior to the Landsat/Secchi observation, and save the file
 
 ```{r}
-era5_summary = full_join(threeday, fiveday) %>% full_join(., sevenday)
+era5_summary = full_join(threeday, fiveday) %>% 
+  full_join(., sevenday) %>% 
+  mutate(date = date + days(1)) %>% 
+  full_join(., previous) %>% 
+  arrange(date)
 ```
 
 Save the file for use in modeling efforts
 
 ```{r}
-write.csv(era5_summary, file.path(era_dir, 'Yojoa_3-5-7day_summary_ERA5.csv'), row.names = F)
+write.csv(era5_summary, file.path(era_dir, 'Yojoa_1-3-5-7day_summary_ERA5.csv'), row.names = F)
 ```
