@@ -20,7 +20,7 @@ This script collates the ERA5 met data summaries with the Rrs Corrected values f
 
 ```{r}
 corr_rs = read.csv(file.path(rs_dir, 'yojoa_LandsatC2_SR_rrs_corr_v2023-04-17.csv'))
-era5 = read.csv(file.path(era_dir, 'Yojoa_3-5-7day_summary_ERA5.csv'))
+era5 = read.csv(file.path(era_dir, 'Yojoa_1-3-5-7day_summary_ERA5.csv'))
 ```
 
 ## Join data

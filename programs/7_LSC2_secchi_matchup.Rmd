@@ -29,7 +29,7 @@ str(secchi)
 #there are duplicated records in here, remove them
 secchi = secchi[!duplicated(secchi),]
 
-ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv')) %>% 
+ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv')) %>% 
   mutate(date = as.Date(date)) 
 str(ls)
 ```
@@ -40,7 +40,7 @@ While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for
 
 ```{r}
 ls = ls %>% 
-  mutate(across(c(med_Blue_corr:med_Swir2_corr, tot_sol_rad_KJpm2_3:mean_wind_mps_7),
+  mutate(across(c(med_Blue_corr:med_Swir2_corr, tot_sol_rad_KJpm2_3:wind_speed_mps_prev),
                 scale, 
                 .names = "{col}_scaled")) 
 names(ls)

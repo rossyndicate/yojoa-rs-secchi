@@ -18,7 +18,6 @@ era_dir = 'data/era5_met/'
 
 #authenticate drive
 drive_auth()
-2 #this will select the first account option in google drive
 ```
 
 # Purpose
@@ -74,7 +73,9 @@ Previous day's weather
 previous = era5_sub %>% 
   mutate(date = date + days(1)) %>% 
   rename_with(~paste0(., '_prev'),
-              c('solar_rad_Jpm2', 'precip_m', 'air_temp_degK', 'wind_speed_mps'))
+              c('solar_rad_Jpm2', 'precip_m', 'air_temp_degK', 'wind_speed_mps')) %>% 
+  mutate(solar_rad_KJpm2_prev = solar_rad_Jpm2_prev*0.001) %>% 
+  select(-solar_rad_Jpm2_prev)
 ```
 
 
@@ -85,6 +86,8 @@ threeday = as.data.frame(era5_sub$date[3:nrow(era5_sub)])
 colnames(threeday) = 'date'
 threeday$tot_sol_rad_KJpm2_3 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 3)*0.001
 threeday$mean_temp_degK_3 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 3)
+threeday$min_temp_degK_3 = roll_min(x  = era5_sub$air_temp_degK, align = 'right', 3)
+threeday$max_temp_degK_3 = roll_max(x  = era5_sub$air_temp_degK, align = 'right', 3)
 threeday$tot_precip_m_3 = roll_sum(x  = era5_sub$precip_m, align = 'right', 3)
 threeday$mean_wind_mps_3 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 3)
 ```
@@ -96,6 +99,8 @@ fiveday = as.data.frame(era5_sub$date[5:nrow(era5_sub)])
 colnames(fiveday) = 'date'
 fiveday$tot_sol_rad_KJpm2_5 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 5)*0.001
 fiveday$mean_temp_degK_5 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 5)
+fiveday$min_temp_degK_5 = roll_min(x  = era5_sub$air_temp_degK, align = 'right', 5)
+fiveday$max_temp_degK_5 = roll_max(x  = era5_sub$air_temp_degK, align = 'right', 5)
 fiveday$tot_precip_m_5 = roll_sum(x  = era5_sub$precip_m, align = 'right', 5)
 fiveday$mean_wind_mps_5 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 5)
 ```
@@ -107,6 +112,8 @@ sevenday = as.data.frame(era5_sub$date[7:nrow(era5_sub)])
 colnames(sevenday) = 'date'
 sevenday$tot_sol_rad_KJpm2_7 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 7)*0.001
 sevenday$mean_temp_degK_7 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 7)
+sevenday$min_temp_degK_7 = roll_min(x  = era5_sub$air_temp_degK, align = 'right', 7)
+sevenday$max_temp_degK_7 = roll_max(x  = era5_sub$air_temp_degK, align = 'right', 7)
 sevenday$tot_precip_m_7 = roll_sum(x  = era5_sub$precip_m, align = 'right', 7)
 sevenday$mean_wind_mps_7 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 7)
 ```
