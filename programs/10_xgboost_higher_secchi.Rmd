@@ -41,27 +41,10 @@ Secchi values disproportionate to lower Secchi values.
 
 ## Load matchup data
 
+We'll load the environment variables from script 9 here to compare apples-to-apples.
+
 ```{r}
-#list all the files in the match directory
-match = list.files(match_dir)
-
-prepData = function(df) {
-  #make a rowid column
-  df_prep = df %>% 
-    rowid_to_column() %>% 
-    mutate(secchi = as.numeric(secchi)) %>% #there's one wonky value in here with two decimal points... dropping from this analysis
-    filter(!is.na(secchi))
-}
-
-#load the matchup files 
-fiveDay = read.csv(file.path(match_dir, match[grepl('five', match) & !grepl('us', match)])) %>%
-  prepData(.) %>%
-  mutate(weight = secchi/max(secchi)*10)
-
-jemma = read.csv(file.path(match_dir, match[grepl('jemma', match) & !grepl('us', match)])) %>%
-  prepData(.) %>%
-  mutate(weight = secchi/max(secchi)*10)
-
+load('data/models/train_test_val_verystringent.RData')
 ```
 
 We want to predict the `secchi` value in these datasets, so let's set
@@ -77,71 +60,6 @@ target <- 'secchi'
 Here, we develop models for 3 days, 5 days, and jemma-special (7 days
 except 1 day in oct/nov) matchup datasets.
 
-### Make test, training, validation sets by image date
-
-60% of the data as the 'train' set, and split the remainder between
-'test' and 'val'.
-
-## For the 5-day set
-
-```{r}
-system.index = unique(fiveDay$system.index)
-
-##Pull 60% as training data
-train_5_uid <- tibble(system.index) %>%
-  sample_frac(.6) 
-
-test_5_uid <- tibble(system.index) %>%
-  anti_join(., train_5_uid) %>%
-  sample_frac(0.5)
-
-val_5_uid <-  tibble(system.index) %>%
-  anti_join(., train_5_uid) %>% 
-  anti_join(., test_5_uid)
-
-train_5 <- train_5_uid %>% 
-  left_join(., fiveDay) %>% 
-  data.frame(.)
-
-test_5 <- test_5_uid %>% 
-  left_join(., fiveDay)%>% 
-  data.frame(.)
-
-val_5 <- val_5_uid %>% 
-  left_join(., fiveDay)%>% 
-  data.frame(.)
-```
-
-## For the Jemma set
-
-```{r}
-system.index = unique(jemma$system.index)
-
-##Pull 60% as training data
-train_j_uid <- tibble(system.index) %>%
-  sample_frac(.6) 
-
-test_j_uid <- tibble(system.index) %>%
-  anti_join(., train_j_uid) %>%
-  sample_frac(0.5)
-
-val_j_uid <-  tibble(system.index) %>%
-  anti_join(., train_j_uid) %>% 
-  anti_join(., test_j_uid)
-
-train_j <- train_j_uid %>% 
-  left_join(., jemma) %>% 
-  data.frame(.)
-
-test_j <- test_j_uid %>% 
-  left_join(., jemma)%>% 
-  data.frame(.)
-
-val_j <- val_j_uid %>% 
-  left_join(., jemma)%>% 
-  data.frame(.)
-```
-
 ## Name feature groups
 
 Here, we indicate the features to be used in our models. We'll use the
@@ -149,10 +67,6 @@ visual bands and add in summaries of ERA5 met data. In our datasets, the
 5-day met summaries have the suffix '\_5', etc.
 
 ```{r}
-band_metprev_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
-                     'RN', 'BG', 'RB','GB',
-                     'solar_rad_KJpm2_prev', 'precip_m_prev','air_temp_degK_prev','wind_speed_mps_prev')
-
 band_met3_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
                      'RN', 'BG', 'RB','GB',
                      'tot_sol_rad_KJpm2_3', 'max_temp_degK_3', 'mean_temp_degK_3', 'min_temp_degK_3',
@@ -168,11 +82,6 @@ band_met51_feats <- c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Ni
                      'tot_sol_rad_KJpm2_5', 'max_temp_degK_5', 'mean_temp_degK_5', 'min_temp_degK_5',
                      'tot_precip_m_5', 'mean_wind_mps_5',
                      'solar_rad_KJpm2_prev', 'precip_m_prev','air_temp_degK_prev','wind_speed_mps_prev')
-
-band_met7_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
-                     'RN', 'BG', 'RB','GB',
-                     'tot_sol_rad_KJpm2_7', 'max_temp_degK_7', 'mean_temp_degK_7', 'min_temp_degK_7',
-                     'tot_precip_m_7', 'mean_wind_mps_7')
 
 band_met71_feats <- c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
                      'RN', 'BG', 'RB','GB',

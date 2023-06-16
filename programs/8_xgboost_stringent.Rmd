@@ -27,16 +27,14 @@ set.seed(799)
 
 # Purpose
 
-The original purpose of this script is to apply applying the `xgboost`
-algorithm to Remote Sensing Imagery of Lake Yojoa in Honduras, to
-estimate Yojoa water clarity. You can read more about this lake
+The purpose of this script is to apply the `xgboost` algorithm to Remote
+Sensing Imagery of Lake Yojoa in Honduras, to estimate Yojoa water
+clarity. You can read more about this lake
 [here](https://www.sciencedirect.com/science/article/pii/S0048969722015479).
 
-In this 'more paranoid' approach, we use a train-test-validation method,
+In this 'more paranoid' approach, we use a train-test-validate method,
 where the validation is holdout data from the train-test to confirm
-model performance. The best performing model here was the local
-knowledge matchup window with both the 7-day met summary and the
-previous day's met data.
+model performance.
 
 ## Load matchup data
 
@@ -54,10 +52,6 @@ prepData = function(df) {
 
 
 #load the matchup files 
-sameDay = read.csv(file.path(match_dir, match[grepl('same', match) & !grepl('us', match)])) %>%
-  prepData(.)
-oneDay = read.csv(file.path(match_dir, match[grepl('one', match) & !grepl('us', match)])) %>%
-  prepData(.)
 threeDay = read.csv(file.path(match_dir, match[grepl('three', match) & !grepl('us', match)])) %>%
   prepData(.)
 fiveDay = read.csv(file.path(match_dir, match[grepl('five', match) & !grepl('us', match)])) %>%
@@ -79,7 +73,7 @@ target <- 'secchi'
 
 ## Make test, training, validation sets
 
-For the five day matchup dataset, let's grab 60% of the data as the
+For each dataset, let's grab 60% of the data as the
 'train' set, and split the remainder between 'test' and 'val'.
 
 ### Three Day Window
@@ -96,7 +90,6 @@ test_3 <- threeDay %>%
 val_3 <- threeDay %>%
   filter(!rowid %in% test_3$rowid) %>%
   filter(!rowid %in% train_3$rowid)
-
 ```
 
 ### Five Day Window
@@ -118,6 +111,11 @@ val_5 <-fiveDay %>%
 
 ### Local Knowledge Window
 
+The 'local knowledge' window creates a variable matchup window, where
+matchups can be within 7 days in all times of year except October and
+November, when the lake can have dramatic shifts in clarity in a short
+period of time.
+
 ```{r}
 train_j <- jemma %>% 
   sample_frac(0.6)
@@ -132,17 +130,14 @@ val_j <- jemma %>%
 
 ```
 
+
 ## Name feature groups
 
 Here, we indicate the features to be used in our models. We'll use the
 visual bands and add in summaries of ERA5 met data. In our datasets, the
-5-day met summaries have the suffix '\_5', etc.
+5-day met summaries have the suffix '\_5', etc. The first two models only inlcude recent weather summaries, but the final two models include 5 or 7 day weather summaries as well as the previous day's weather.
 
 ```{r}
-band_metprev_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
-                     'RN', 'BG', 'RB','GB',
-                     'solar_rad_KJpm2_prev', 'precip_m_prev','air_temp_degK_prev','wind_speed_mps_prev')
-
 band_met3_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
                      'RN', 'BG', 'RB','GB',
                      'tot_sol_rad_KJpm2_3', 'max_temp_degK_3', 'mean_temp_degK_3', 'min_temp_degK_3',
@@ -158,11 +153,6 @@ band_met51_feats <- c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Ni
                      'tot_sol_rad_KJpm2_5', 'max_temp_degK_5', 'mean_temp_degK_5', 'min_temp_degK_5',
                      'tot_precip_m_5', 'mean_wind_mps_5',
                      'solar_rad_KJpm2_prev', 'precip_m_prev','air_temp_degK_prev','wind_speed_mps_prev')
-
-band_met7_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
-                     'RN', 'BG', 'RB','GB',
-                     'tot_sol_rad_KJpm2_7', 'max_temp_degK_7', 'mean_temp_degK_7', 'min_temp_degK_7',
-                     'tot_precip_m_7', 'mean_wind_mps_7')
 
 band_met71_feats <- c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
                      'RN', 'BG', 'RB','GB',
@@ -194,6 +184,16 @@ dtest_3d_5m <- xgb.DMatrix(data = as.matrix(test_3[,band_met5_feats]),
                      label = test_3[,target])
 
 dval_3d_5m <- xgb.DMatrix(data = as.matrix(val_3[,band_met5_feats]), 
+                     label = val_3[,target])
+
+## 3 day window, 5/1 days previous met
+dtrain_3d_51m <- xgb.DMatrix(data = as.matrix(train_3[,band_met51_feats]), 
+                            label = train_3[,target])
+
+dtest_3d_51m <- xgb.DMatrix(data = as.matrix(test_3[,band_met51_feats]), 
+                     label = test_3[,target])
+
+dval_3d_51m <- xgb.DMatrix(data = as.matrix(val_3[,band_met51_feats]), 
                      label = val_3[,target])
 
 ## 3 day window, 7/1 days previous met
@@ -232,6 +232,16 @@ dtest_5d_5m <- xgb.DMatrix(data = as.matrix(test_5[,band_met5_feats]),
 dval_5d_5m <- xgb.DMatrix(data = as.matrix(val_5[,band_met5_feats]), 
                      label = val_5[,target])
 
+## 5 day window, 5/1 days previous met
+dtrain_5d_51m <- xgb.DMatrix(data = as.matrix(train_5[,band_met51_feats]), 
+                            label = train_5[,target])
+
+dtest_5d_51m <- xgb.DMatrix(data = as.matrix(test_5[,band_met51_feats]), 
+                     label = test_5[,target])
+
+dval_5d_51m <- xgb.DMatrix(data = as.matrix(val_5[,band_met51_feats]), 
+                     label = val_5[,target])
+
 ## 5 day window, 7/1 days previous met
 dtrain_5d_71m <- xgb.DMatrix(data = as.matrix(train_5[,band_met71_feats]), 
                             label = train_5[,target])
@@ -268,7 +278,17 @@ dtest_jd_3m <- xgb.DMatrix(data = as.matrix(test_j[,band_met3_feats]),
 dval_jd_3m <- xgb.DMatrix(data = as.matrix(val_j[,band_met3_feats]), 
                      label = val_j[,target])
 
-## 5 day window, 7/1 days previous met
+## jemma window, 5/1 days previous met
+dtrain_jd_51m <- xgb.DMatrix(data = as.matrix(train_j[,band_met51_feats]), 
+                            label = train_j[,target])
+
+dtest_jd_51m <- xgb.DMatrix(data = as.matrix(test_j[,band_met51_feats]), 
+                     label = test_j[,target])
+
+dval_jd_51m <- xgb.DMatrix(data = as.matrix(val_j[,band_met51_feats]), 
+                     label = val_j[,target])
+
+## jemma window, 7/1 days previous met
 dtrain_jd_71m <- xgb.DMatrix(data = as.matrix(train_j[,band_met71_feats]), 
                             label = train_j[,target])
 
@@ -284,8 +304,8 @@ dval_jd_71m <- xgb.DMatrix(data = as.matrix(val_j[,band_met71_feats]),
 
 This is an xgboost optimization method developed by Sam Sillen where you
 list many possible hyperparameter options and then create a matrix of
-all possible combinations and grab the top 20 performing combinations of
-hyperparameters by square error (our loss statistic).
+all possible combinations - aka 'grid search' - and grab the top 20 performing combinations of
+hyperparameters by square error (our loss statistic). 
 
 ```{r}
 
@@ -311,7 +331,7 @@ hypertune_xgboost = function(train, test, grid){
                          early_stopping_rounds = 20)
   
   summary <- grid %>% mutate(val_loss = xgb.naive$best_score, best_message = xgb.naive$best_msg,
-                             mod = list(xgb.naive))
+                             mod = list(xgb.naive)) 
   
   return(summary) 
   
@@ -321,7 +341,8 @@ hypertune_xgboost = function(train, test, grid){
 
 ### 3 day window, 3 day met hypertuning
 
-Note, evaluation is turned off for these chunks as to not overwrite previous models and parameter tuning in next section.
+Note, evaluation is turned off for these chunks as to not overwrite
+previous models and parameter tuning in next section.
 
 ```{r, eval = F}
 ## Hypertune xgboost 3 day window, 3 day met
@@ -358,6 +379,25 @@ best_mod_3d_5m <- xgboost_hypertune_3d_5m[xgboost_hypertune_3d_5m$val_loss==min(
 
 save(mod_summary_3d_5m,best_mod_3d_5m, file = 'data/models/paramsxg_mp_val_3d_5m.RData')
 
+```
+
+### 3 day window, 5/1 day met hypertuning
+
+```{r, eval = F}
+## Hypertune xgboost 5 day window, 5/1 day met
+xgboost_hypertune_3d_51m <- grid_train %>%
+  pmap_dfr(function(...) {
+    current <- tibble(...)
+    hypertune_xgboost(dtrain_3d_51m,dtest_3d_51m,current)
+  })
+
+mod_summary_3d_51m <- xgboost_hypertune_3d_51m %>% 
+  arrange(val_loss) %>%
+  dplyr::slice(1:20)
+
+best_mod_3d_51m <- xgboost_hypertune_3d_51m[xgboost_hypertune_3d_51m$val_loss==min(xgboost_hypertune_3d_51m$val_loss),]
+
+save(mod_summary_3d_51m,best_mod_3d_51m, file = 'data/models/paramsxg_mp_val_3d_51m.RData')
 ```
 
 ### 3 day window, 7/1 day met hypertuning
@@ -418,6 +458,25 @@ save(mod_summary_5d_5m,best_mod_5d_5m, file = 'data/models/paramsxg_mp_val_5d_5m
 
 ```
 
+### 5 day window, 5/1 day met hypertuning
+
+```{r, eval = F}
+## Hypertune xgboost 5 day window, 5/1 day met
+xgboost_hypertune_5d_51m <- grid_train %>%
+  pmap_dfr(function(...) {
+    current <- tibble(...)
+    hypertune_xgboost(dtrain_5d_51m,dtest_5d_51m,current)
+  })
+
+mod_summary_5d_51m <- xgboost_hypertune_5d_51m %>% 
+  arrange(val_loss) %>%
+  dplyr::slice(1:20)
+
+best_mod_5d_51m <- xgboost_hypertune_5d_51m[xgboost_hypertune_5d_51m$val_loss==min(xgboost_hypertune_5d_51m$val_loss),]
+
+save(mod_summary_5d_51m,best_mod_5d_51m, file = 'data/models/paramsxg_mp_val_5d_51m.RData')
+```
+
 ### 5 day window, 7/1 day met hypertuning
 
 ```{r, eval = F}
@@ -475,10 +534,29 @@ best_mod_jd_5m <- xgboost_hypertune_jd_5m[xgboost_hypertune_jd_5m$val_loss==min(
 save(mod_summary_jd_5m,best_mod_jd_5m, file = 'data/models/paramsxg_mp_val_jd_5m.RData')
 ```
 
+### Jemma-special, 5/1 day met
+
+```{r, eval = F}
+## Hypertune xgboost jemma window, 5/1 day met
+xgboost_hypertune_jd_51m <- grid_train %>%
+  pmap_dfr(function(...) {
+    current <- tibble(...)
+    hypertune_xgboost(dtrain_jd_51m,dtest_jd_51m,current)
+  })
+
+mod_summary_jd_51m <- xgboost_hypertune_jd_51m %>% 
+  arrange(val_loss) %>%
+  dplyr::slice(1:20)
+
+best_mod_jd_51m <- xgboost_hypertune_jd_51m[xgboost_hypertune_jd_51m$val_loss==min(xgboost_hypertune_jd_51m$val_loss),]
+
+save(mod_summary_jd_51m,best_mod_jd_51m, file = 'data/models/paramsxg_mp_val_jd_51m.RData')
+```
+
 ### Jemma-special, 7/1 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 5 day met
+## Hypertune xgboost jemma window, 7/1 day met
 xgboost_hypertune_jd_71m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -504,41 +582,47 @@ save(mod_summary_jd_71m,best_mod_jd_71m, file = 'data/models/paramsxg_mp_val_jd_
 load('data/models/paramsxg_mp_val_3d_3m.RData')
 load('data/models/paramsxg_mp_val_3d_5m.RData')
 load('data/models/paramsxg_mp_val_3d_71m.RData')
+load('data/models/paramsxg_mp_val_3d_51m.RData')
 load('data/models/paramsxg_mp_val_5d_3m.RData')
 load('data/models/paramsxg_mp_val_5d_5m.RData')
+load('data/models/paramsxg_mp_val_5d_51m.RData')
 load('data/models/paramsxg_mp_val_5d_71m.RData')
 load('data/models/paramsxg_mp_val_jd_3m.RData')
 load('data/models/paramsxg_mp_val_jd_5m.RData')
+load('data/models/paramsxg_mp_val_jd_51m.RData')
 load('data/models/paramsxg_mp_val_jd_71m.RData')
 
 ```
 
 Now that these are loaded, we need to look at the test/train statistics.
 Ideally the train/test RMSE are relatively close so we don't choose too
-overfit of a model.
+overfit of a model. Below, we apply the model to the validation dataset and plot the validation observed versus predicted.
 
 ### Three day window dataset
 
 ```{r}
-mod_summary_3d_3m
-mod_summary_3d_5m
-mod_summary_3d_71m
+mod_summary_3d_3m %>% select(best_message)
+mod_summary_3d_5m %>% select(best_message)
+mod_summary_3d_51m %>% select(best_message)
+mod_summary_3d_71m %>% select(best_message)
 ```
 
 ```{r}
 # most of best models are overfit, so looking for train/test RMSE that are closer
 optimized_booster_3d_3m <- mod_summary_3d_3m$mod[3][[1]]
-optimized_booster_3d_5m <- mod_summary_3d_5m$mod[1][[1]]
-optimized_booster_3d_71m <- mod_summary_3d_71m$mod[2][[1]]
+optimized_booster_3d_5m <- mod_summary_3d_5m$mod[2][[1]]
+optimized_booster_3d_51m <- mod_summary_3d_51m$mod[1][[1]]
+optimized_booster_3d_71m <- mod_summary_3d_71m$mod[3][[1]]
 
 # Apply best mod
 preds_3 <- val_3 %>% 
   mutate(pred_secchi_3d_5m = predict(optimized_booster_3d_5m, dval_3d_5m),
          pred_secchi_3d_3m = predict(optimized_booster_3d_3m, dval_3d_3m),
+         pred_secchi_3d_51m = predict(optimized_booster_3d_51m, dval_3d_51m),
          pred_secchi_3d_71m = predict(optimized_booster_3d_71m, dval_3d_71m))
 
 evals_3 <- preds_3 %>%
-  summarise(across(c(pred_secchi_3d_5m, pred_secchi_3d_3m, pred_secchi_3d_71m),
+  summarise(across(c(pred_secchi_3d_5m, pred_secchi_3d_3m, pred_secchi_3d_51m, pred_secchi_3d_71m),
                    list(rmse = ~rmse(secchi, .),
                         mae = ~mae(secchi, .),
                         mape = ~mape(secchi, .),
@@ -554,25 +638,28 @@ evals_3
 ### Five day window dataset
 
 ```{r}
-(mod_summary_5d_3m)
-(mod_summary_5d_5m)
-(mod_summary_5d_71m)
+mod_summary_5d_3m %>% select(best_message)
+mod_summary_5d_5m %>% select(best_message)
+mod_summary_5d_51m %>% select(best_message)
+mod_summary_5d_71m %>% select(best_message)
 ```
 
 ```{r}
 # most of best models are overfit, so looking for train/test RMSE that are closer
-optimized_booster_5d_3m <- mod_summary_5d_3m$mod[2][[1]]
-optimized_booster_5d_5m <- mod_summary_5d_5m$mod[13][[1]]
-optimized_booster_5d_71m <- mod_summary_5d_71m$mod[5][[1]]
+optimized_booster_5d_3m <- mod_summary_5d_3m$mod[4][[1]] # this one is quite overfit - train rmse is 0.5, test is 1
+optimized_booster_5d_5m <- mod_summary_5d_5m$mod[2][[1]] # all these options are pretty overfit. 
+optimized_booster_5d_51m <- mod_summary_5d_51m$mod[3][[1]] # still overfit
+optimized_booster_5d_71m <- mod_summary_5d_71m$mod[1][[1]] # again, pretty overfit
 
 # Apply best mod
 preds_5 <- val_5 %>% 
   mutate(pred_secchi_5d_5m = predict(optimized_booster_5d_5m, dval_5d_5m),
          pred_secchi_5d_3m = predict(optimized_booster_5d_3m, dval_5d_3m),
-         pred_secchi_5d_71m = predict(optimized_booster_5d_71m, dval_5d_71m))
+         pred_secchi_5d_71m = predict(optimized_booster_5d_71m, dval_5d_71m),
+         pred_secchi_5d_51m = predict(optimized_booster_5d_51m, dval_5d_51m))
 
 evals_5 <- preds_5 %>%
-  summarise(across(c(pred_secchi_5d_5m, pred_secchi_5d_3m, pred_secchi_5d_71m),
+  summarise(across(c(pred_secchi_5d_5m, pred_secchi_5d_3m, pred_secchi_5d_71m, pred_secchi_5d_51m),
                    list(rmse = ~rmse(secchi, .),
                         mae = ~mae(secchi, .),
                         mape = ~mape(secchi, .),
@@ -588,25 +675,28 @@ evals_5
 ### Jemma-special window dataset
 
 ```{r}
-(mod_summary_jd_3m)
-(mod_summary_jd_5m)
-(mod_summary_jd_71m)
+mod_summary_jd_3m %>% select(best_message)
+mod_summary_jd_5m %>% select(best_message)
+mod_summary_jd_51m %>% select(best_message)
+mod_summary_jd_71m %>% select(best_message)
 ```
 
 ```{r}
 # best mod looks good here across the board
 optimized_booster_jd_3m <- mod_summary_jd_3m$mod[1][[1]]
 optimized_booster_jd_5m <- mod_summary_jd_5m$mod[1][[1]]
+optimized_booster_jd_51m <- mod_summary_jd_51m$mod[1][[1]]
 optimized_booster_jd_71m <- mod_summary_jd_71m$mod[1][[1]]
 
 # Apply best mod
 preds_jd <- val_j %>% 
   mutate(pred_secchi_jd_5m = predict(optimized_booster_jd_5m, dval_jd_5m),
          pred_secchi_jd_3m = predict(optimized_booster_jd_3m, dval_jd_3m),
+         pred_secchi_jd_51m = predict(optimized_booster_jd_51m, dval_jd_51m),
          pred_secchi_jd_71m = predict(optimized_booster_jd_71m, dval_jd_71m))
 
 evals_jd <- preds_jd %>%
-  summarise(across(c(pred_secchi_jd_5m, pred_secchi_jd_3m, pred_secchi_jd_71m),
+  summarise(across(c(pred_secchi_jd_5m, pred_secchi_jd_3m, pred_secchi_jd_71m, pred_secchi_jd_51m),
                    list(rmse = ~rmse(secchi, .),
                         mae = ~mae(secchi, .),
                         mape = ~mape(secchi, .),
@@ -621,7 +711,7 @@ evals_jd
 
 ### Model Performance - 3 day window
 
-```{r}
+```{r, echo = F}
 ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_3m)) + 
   geom_point() +
   geom_abline(color = 'grey', lty = 2) + 
@@ -658,6 +748,24 @@ ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_5m)) +
   theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
         plot.subtitle = element_text(hjust = 0.5))
 
+ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_51m)) + 
+  geom_point() +
+  geom_abline(color = 'grey', lty = 2) + 
+  coord_cartesian(xlim = c(0, 6.5),
+                  ylim = c(0,6.5)) +
+  stat_poly_eq(aes(label = paste(after_stat(adj.rr.label))),
+               formula = y~x, 
+               parse = TRUE, 
+               label.y = Inf, 
+               vjust = 1.3) +
+  labs(title = 'Yojoa Secchi xgboost Validation Data\nthree day matchups, band and 5/1-day met summaries', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       x = 'Actual Secchi (m)', 
+       y = 'Predicted Secchi (m)')  +
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        plot.subtitle = element_text(hjust = 0.5))
+
 ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_71m)) + 
   geom_point() +
   geom_abline(color = 'grey', lty = 2) + 
@@ -679,7 +787,9 @@ ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_71m)) +
 
 ### Model Performance - 5 day window
 
-```{r}
+Keep in mind that all of these models seemed overfit in the train/test sets.
+
+```{r, echo = F}
 ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_3m)) + 
   geom_point() +
   geom_abline(color = 'grey', lty = 2) + 
@@ -716,6 +826,24 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_5m)) +
   theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
         plot.subtitle = element_text(hjust = 0.5))
 
+ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_51m)) + 
+  geom_point() +
+  geom_abline(color = 'grey', lty = 2) + 
+  coord_cartesian(xlim = c(0, 6.5),
+                  ylim = c(0,6.5)) +
+  stat_poly_eq(aes(label = paste(after_stat(adj.rr.label))),
+               formula = y~x, 
+               parse = TRUE, 
+               label.y = Inf, 
+               vjust = 1.3) +
+  labs(title = 'Yojoa Secchi xgboost Validation Data\nfive day matchups, band and 5/1-day met summaries', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       x = 'Actual Secchi (m)', 
+       y = 'Predicted Secchi (m)')  +
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        plot.subtitle = element_text(hjust = 0.5))
+
 ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_71m)) + 
   geom_point() +
   geom_abline(color = 'grey', lty = 2) + 
@@ -735,9 +863,11 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_71m)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
+Considering that the train/test metrics seemed overfit, the validation look pretty good here. 
+
 ### Model Performance - Jemma window
 
-```{r}
+```{r, echo = F}
 ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_3m)) + 
   geom_point() +
   geom_abline(color = 'grey', lty = 2) + 
@@ -774,6 +904,24 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_5m)) +
   theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
         plot.subtitle = element_text(hjust = 0.5))
 
+ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_51m)) + 
+  geom_point() +
+  geom_abline(color = 'grey', lty = 2) + 
+  coord_cartesian(xlim = c(0, 6.5),
+                  ylim = c(0,6.5)) +
+  stat_poly_eq(aes(label = paste(after_stat(adj.rr.label))),
+               formula = y~x, 
+               parse = TRUE, 
+               label.y = Inf, 
+               vjust = 1.3) +
+  labs(title = 'Yojoa Secchi xgboost Validation Data\n7/1 day matchups, band and 5/1-day met summaries', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       x = 'Actual Secchi (m)', 
+       y = 'Predicted Secchi (m)')  +
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+        plot.subtitle = element_text(hjust = 0.5))
+
 ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_71m)) + 
   geom_point() +
   geom_abline(color = 'grey', lty = 2) + 
@@ -793,17 +941,24 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_71m)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
-### Applying model to full data
+# Applying model to full data
+
+By looking at the train/test results, the validation results (especially the model performance at higher Secchi estimates), and the overall r^2 of the validation, it looks like the 7/1 day window with the 5/1 day met data is the best performing. This is a relatively subjective decision - and the end user can absolutely make a different decision.
 
 ```{r}
+features = band_met51_feats
+model = optimized_booster_jd_51m
+met = '5/1 day met summaries'
+window = '7/1 day window'
+
 full_stack <- read_csv('data/upstreamRS/yojoa_corr_rrs_met_scaled_v2023-06-15.csv') %>%
   mutate(secchi = 100) %>%
   prepData(.) 
 
-stack_xgb <- xgb.DMatrix(data = as.matrix(full_stack[,band_met71_feats]))
+stack_xgb <- xgb.DMatrix(data = as.matrix(full_stack[,features]))
 
 full_stack_simp <- full_stack %>%
-  mutate(secchi = predict(optimized_booster_jd_71m, stack_xgb)) %>%
+  mutate(secchi = predict(model, stack_xgb)) %>%
   select(date, location, secchi, mission) 
 
 situ_stack <- read_csv('data/in-situ/Secchi_completedataset.csv') %>%
@@ -812,35 +967,76 @@ situ_stack <- read_csv('data/in-situ/Secchi_completedataset.csv') %>%
   filter(!is.na(secchi)) %>%
   mutate(mission = 'Measured') %>%
   bind_rows(full_stack_simp)
-
-ggplot(situ_stack %>%
-         filter(location == 'E'), aes(x = date, y = secchi, color = mission,
-                                      shape = mission)) + 
-  geom_point() + 
-  labs(title = 'Yojoa Secchi Historical Record - Site E',
-       subtitle = '7/1 day window, 7/1 day met, moderate data stringency',
-       color = 'data source', shape = 'data source') +
-  scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
-  theme_few() +
-  theme(legend.position = c(0.8,0.8)) + 
-  scale_shape_manual(values = c(19,19,19,19,1)) +
-  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
-        plot.subtitle = element_text(hjust = 0.5))
-
 ```
 
-### Whole lake secchi dynamics
+Let's look at each of the site records alongside the Landsat-estimated Secchi depth.
+
+```{r, echo = F}
+plotRecordBySite = function(site) {
+  ggplot(situ_stack %>%
+           filter(location == site), aes(x = date, y = secchi, color = mission,
+                                        shape = mission)) + 
+    geom_point() + 
+    labs(title = paste0('Yojoa Secchi Historical Record - Site ', site),
+         subtitle = paste0(window, ', ', met, ', moderate data stringency'),
+         y = 'Secchi (m)',
+         color = 'data source', shape = 'data source') +
+    scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
+    theme_few() +
+    theme(legend.position = c(0.8,0.8)) + 
+    scale_shape_manual(values = c(19,19,19,19,1)) +
+    scale_y_continuous(limits = c(0, max(situ_stack$secchi)), breaks = seq(0, max(situ_stack$secchi), 2)) +
+    scale_x_date(limits = c(min(situ_stack$date), max(situ_stack$date))) +
+    theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+          plot.subtitle = element_text(hjust = 0.5))
+}
+
+map(sort(unique(situ_stack$location)), plotRecordBySite)
+```
+
+### Look at recent data per location
 
 ```{r}
-lake_avg <- situ_stack %>%
-  group_by(date,mission) %>%
-  summarize(across(where(is.numeric),mean))
+plotRecentBySite = function(site) {
+  ggplot(situ_stack %>%
+           filter(location == site), aes(x = date, y = secchi, color = mission,
+                                        shape = mission)) + 
+    geom_point() + 
+    labs(title = paste0('Yojoa Secchi 2018-2022 - Site ', site),
+         subtitle = paste0(window, ', ', met, ', moderate data stringency'),
+         y = 'Secchi (m)',
+         color = 'data source', shape = 'data source') +
+    scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
+    theme_few() +
+    theme(legend.position = c(0.8,0.8)) + 
+    scale_shape_manual(values = c(19,19,19,19,1)) +
+    scale_y_continuous(limits = c(0, max(situ_stack$secchi)), breaks = seq(0, max(situ_stack$secchi), 2)) +
+    scale_x_date(limits = c(ymd('2018-01-01'), max(situ_stack$date))) +
+    theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+          plot.subtitle = element_text(hjust = 0.5))
+}
 
-ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) + 
+map(sort(unique(situ_stack$location)), plotRecentBySite)
+```
+
+
+## Whole lake secchi dynamics
+
+While there is plenty of variability across the lake, let's summarize to a single value per date, since not all sites have the same density of record. Since there are a few oddballs in here (both in terms of measured and estimated), we'll use the median Secchi across all sites.
+
+```{r}
+lake_med <- situ_stack %>%
+  group_by(date,mission) %>%
+  summarize(across(where(is.numeric),median))
+```
+
+```{r, echo = F}
+ggplot(lake_med, aes(x = date, y = secchi, color = mission, shape = mission)) + 
   geom_point() + 
   scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
-  labs(title = 'Yojoa Secchi Historical Record\nwhole-lake average',
-       subtitle = '7/1 day window, 7/1 day met, moderate data stringency',
+  labs(title = 'Yojoa Secchi Historical Record\nwhole-lake median',
+         subtitle = paste0(window, ', ', met, ', moderate data stringency'),
+       y = 'median Secchi(m)',
        color = 'data source', shape = 'data source') +
   theme_few() +
   theme(legend.position = c(0.8,0.8)) + 
@@ -848,20 +1044,18 @@ ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) +
   theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
         plot.subtitle = element_text(hjust = 0.5))
 
-
 ```
-
-## And look at overlapping times to see how we're doing
 
 ### 2006
 
-```{r}
-ggplot(lake_avg, aes(x = date, y = secchi, color = mission,shape = mission)) + 
+```{r, echo = F}
+ggplot(lake_med, aes(x = date, y = secchi, color = mission,shape = mission)) + 
   geom_point() + 
   scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
   theme_few() +
-  labs(title = 'Yojoa Secchi 2006\nwhole-lake average',
-       subtitle = '7/1 day window, 7/1 day met, moderate data stringency',
+  labs(title = 'Yojoa Secchi 2006\nwhole-lake median',
+         subtitle = paste0(window, ', ', met, ', moderate data stringency'),
+       y = 'median Secchi (m)',
        color = 'data source', shape = 'data source') +
   theme(legend.position = c(0.8,0.8)) + 
   scale_shape_manual(values = c(19,19,19,19,1)) +
@@ -874,12 +1068,13 @@ ggplot(lake_avg, aes(x = date, y = secchi, color = mission,shape = mission)) +
 ### Recent
 
 ```{r}
-ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) + 
+ggplot(lake_med, aes(x = date, y = secchi, color = mission, shape = mission)) + 
   geom_point() + 
   scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
   theme_few() +
-  labs(title = 'Yojoa Secchi 2018-2022\nwhole-lake average',
-       subtitle = '7/1 day window, 7/1 day met, moderate data stringency',
+  labs(title = 'Yojoa Secchi 2018-2022\nwhole-lake median',
+         subtitle = paste0(window, ', ', met, ', moderate data stringency'),
+       y = 'median Secchi (m)',
        color = 'data source', shape = 'data source') +
   theme(legend.position = c(0.8,0.8)) + 
   scale_shape_manual(values = c(19,19,19,19,1)) +
@@ -889,12 +1084,13 @@ ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) +
 
 ```
 
-### Print off xgboost model feature importance
+## Print off xgboost model feature importance
 
 ```{r}
-feat_importance = xgb.importance(feature_names = band_met71_feats,
-               model = optimized_booster_jd_71m)
+feat_importance = xgb.importance(feature_names = band_met51_feats,
+               model = optimized_booster_jd_51m)
 
 xgb.plot.importance(feat_importance)
 ```
+
 

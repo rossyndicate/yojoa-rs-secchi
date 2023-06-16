@@ -16,7 +16,7 @@ match_dir = 'data/matchups/'
 # Methods
 
 ```{r, include = F}
-stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv'))
+stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv'))
 match = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
 
 ls5_tot = stack %>% 
