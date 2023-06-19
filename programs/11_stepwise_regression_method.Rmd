@@ -1,7 +1,7 @@
 ---
 title: "Stepwise Regression Method"
 author: "B Steele"
-date: "r Sys.Date()"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
@@ -29,11 +29,13 @@ This script uses stepwise regression as an alternative modeling approach for the
 ```{r}
 match5 = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
 match71 = read.csv(file.path(match_dir, 'jemma_multiDay_LS-Secchi_matchups_n238.csv'))
+
 stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_scaled_v2023-06-15.csv'))
 secchi = read.csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
   mutate(secchi = as.numeric(secchi),
          date = mdy(date)) %>% 
-  filter(!is.na(secchi))
+  filter(!is.na(secchi)) %>% 
+  mutate(location = gsub(' ', '', location))
 ```
 
 ## Prep data
@@ -55,7 +57,7 @@ stack = stack %>%
 
 Make train/test/validation sets
 
-70% train, 30% test
+70% train, 30% test. We use a cross-validation technique in the stepwise regression model that acts as a train/test (on the 70% data), and use the remaining 30% as a holdout for validation.
 
 ```{r}
 ##Pull 30% as holdout test data
@@ -89,6 +91,14 @@ vars_5m = c('secchi',
          "tot_sol_rad_KJpm2_5_scaled", "max_temp_degK_5_scaled", "mean_temp_degK_5_scaled", "min_temp_degK_5_scaled",
          "tot_precip_m_5_scaled", "mean_wind_mps_5_scaled")
 
+vars_51m = c('secchi',
+         'med_Blue_corr_scaled', 'med_Red_corr_scaled', 'med_Green_corr_scaled', 
+         'med_Nir_corr_scaled',
+         'RN_scaled', 'BG_scaled', 'RB_scaled', 'GB_scaled', 
+         "tot_sol_rad_KJpm2_5_scaled", "max_temp_degK_5_scaled", "mean_temp_degK_5_scaled", "min_temp_degK_5_scaled",
+         "tot_precip_m_5_scaled", "mean_wind_mps_5_scaled", 
+         "precip_m_prev_scaled", "air_temp_degK_prev_scaled", "wind_speed_mps_prev_scaled")
+
 vars_71m = c('secchi',
          'med_Blue_corr_scaled', 'med_Red_corr_scaled', 'med_Green_corr_scaled', 
          'med_Nir_corr_scaled',
@@ -100,10 +110,12 @@ vars_71m = c('secchi',
 #subset for only vars for modeling
 train_match_5d_3m = train_match5 %>% select(all_of(vars_3m))
 train_match_5d_5m = train_match5 %>% select(all_of(vars_5m))
+train_match_5d_51m = train_match5 %>% select(all_of(vars_51m))
 train_match_5d_71m = train_match5 %>% select(all_of(vars_71m))
 
 train_match_71d_3m = train_match71 %>% select(all_of(vars_3m))
 train_match_71d_5m = train_match71 %>% select(all_of(vars_5m))
+train_match_71d_51m = train_match71 %>% select(all_of(vars_51m))
 train_match_71d_71m = train_match71 %>% select(all_of(vars_71m))
 ```
 
@@ -128,6 +140,13 @@ step.model.5d5m <- train(secchi ~ ., data = train_match_5d_5m,
                     )
 save(step.model.5d5m, file = 'data/models/stepreg_5d_5m.RData')
 
+step.model.5d51m <- train(secchi ~ ., data = train_match_5d_51m,
+                    method = "leapBackward", 
+                    tuneGrid = data.frame(nvmax = 1:13),
+                    trControl = train.control
+                    )
+save(step.model.5d51m, file = 'data/models/stepreg_5d_51m.RData')
+
 step.model.5d71m <- train(secchi ~ ., data = train_match_5d_71m,
                     method = "leapBackward", 
                     tuneGrid = data.frame(nvmax = 1:13),
@@ -149,6 +168,14 @@ step.model.71d5m <- train(secchi ~ ., data = train_match_71d_5m,
                     )
 save(step.model.71d5m, file = 'data/models/stepreg_71d_5m.RData')
 
+step.model.71d51m <- train(secchi ~ ., data = train_match_71d_51m,
+                    method = "leapBackward", 
+                    tuneGrid = data.frame(nvmax = 1:13),
+                    trControl = train.control
+                    )
+
+save(step.model.71d51m, file = 'data/models/stepreg_71d_51m.RData')
+
 step.model.71d71m <- train(secchi ~ ., data = train_match_71d_71m,
                     method = "leapBackward", 
                     tuneGrid = data.frame(nvmax = 1:13),
@@ -164,18 +191,22 @@ Load models and see results
 ```{r}
 load('data/models/stepreg_5d_3m.RData')
 load('data/models/stepreg_5d_5m.RData')
+load('data/models/stepreg_5d_51m.RData')
 load('data/models/stepreg_5d_71m.RData')
 
 load('data/models/stepreg_71d_3m.RData')
 load('data/models/stepreg_71d_5m.RData')
+load('data/models/stepreg_71d_51m.RData')
 load('data/models/stepreg_71d_71m.RData')
 
 step.model.5d3m$results
 step.model.5d5m$results
+step.model.5d51m$results
 step.model.5d71m$results
 
 step.model.71d3m$results
 step.model.71d5m$results
+step.model.71d51m$results
 step.model.71d71m$results
 
 ```
@@ -196,7 +227,7 @@ ggplot(test_match71, aes(x = secchi, y = predicted)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi Stepwise Regression Test Data\nseven/one day matchups, band and 5-day met summaries', 
-       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -216,7 +247,7 @@ test_match71 %>%
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi Stepwise Regression Test Data\nseven/one day matchups, band and 5-day met summaries', 
-       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -240,7 +271,7 @@ ggplot(test_match5, aes(x = secchi, y = predicted)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi Stepwise Regression Test Data\nfive day matchups, band and 5-day met summaries', 
-       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -260,7 +291,7 @@ test_match5 %>%
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi Stepwise Regression Test Data\nfive day matchups, band and 5-day met summaries', 
-       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -279,35 +310,72 @@ secchi = secchi %>%
 
 situ_stack <- full_join(stack, secchi) %>% 
   select(date, location, secchi, mission) 
-
-ggplot(situ_stack %>%
-         filter(location == 'E'), aes(x = date, y = secchi, color = mission,
-                                      shape = mission)) + 
-  geom_point() + 
-  labs(title = 'Yojoa Secchi Historical Record - Site E',
-       subtitle = '7/1 day window, 5 day met\nhigh data stringency\nstepwise regression',
-       color = 'data source', shape = 'data source') +
-  scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
-  theme_few() +
-  theme(legend.position = c(0.8,0.8)) + 
-  scale_shape_manual(values = c(19,19,19,19,1)) +
-  theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
-        plot.subtitle = element_text(hjust = 0.5))
-
 ```
 
+```{r}
+plotRecordBySite = function(site) {
+  ggplot(situ_stack %>%
+           filter(location == site), aes(x = date, y = secchi, color = mission,
+                                        shape = mission)) + 
+    geom_point() + 
+    labs(title = paste0('Yojoa Secchi Historical Record - Site ', site),
+       subtitle = '7/1 day window, 5 day met\nmoderate data stringency\nstepwise regression',
+         y = 'Secchi (m)',
+         color = 'data source', shape = 'data source') +
+    scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
+    theme_few() +
+    theme(legend.position = c(0.8,0.8)) + 
+    scale_shape_manual(values = c(19,19,19,19,1)) +
+    scale_y_continuous(limits = c(0, max(situ_stack$secchi)), breaks = seq(0, max(situ_stack$secchi), 2)) +
+    scale_x_date(limits = c(min(situ_stack$date), max(situ_stack$date))) +
+    theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+          plot.subtitle = element_text(hjust = 0.5))
+}
+
+map(sort(unique(situ_stack$location)), plotRecordBySite)
+```
+
+### Look at recent data per location
+
+```{r}
+plotRecentBySite = function(site) {
+  ggplot(situ_stack %>%
+           filter(location == site), aes(x = date, y = secchi, color = mission,
+                                        shape = mission)) + 
+    geom_point() + 
+    labs(title = paste0('Yojoa Secchi 2018-2022 - Site ', site),
+       subtitle = '7/1 day window, 5 day met\nmoderate data stringency\nstepwise regression',
+         y = 'Secchi (m)',
+         color = 'data source', shape = 'data source') +
+    scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
+    theme_few() +
+    theme(legend.position = c(0.8,0.8)) + 
+    scale_shape_manual(values = c(19,19,19,19,1)) +
+    scale_y_continuous(limits = c(0, max(situ_stack$secchi)), breaks = seq(0, max(situ_stack$secchi), 2)) +
+    scale_x_date(limits = c(ymd('2018-01-01'), max(situ_stack$date))) +
+    theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+          plot.subtitle = element_text(hjust = 0.5))
+}
+
+map(sort(unique(situ_stack$location)), plotRecentBySite)
+```
+
+
 ### Whole lake secchi dynamics
+
+While there is plenty of variability across the lake, let's summarize to a single value per date, since not all sites have the same density of record. Since there are a few oddballs in here (both in terms of measured and estimated), we'll use the median Secchi across all sites.
 
 ```{r}
 lake_avg <- situ_stack %>%
   group_by(date,mission) %>%
-  summarize(across(where(is.numeric),mean))
+  summarize(across(where(is.numeric),median))
 
 ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) + 
   geom_point() + 
   scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
   labs(title = 'Yojoa Secchi Historical Record\nwhole-lake average',
-       subtitle = '7/1 day window, 5 day met\nhigh data stringency\nstepwise regression',
+       subtitle = '7/1 day window, 5 day met\nmoderate data stringency\nstepwise regression',
+       y = 'median Secchi (m)',
        color = 'data source', shape = 'data source') +
   theme_few() +
   theme(legend.position = c(0.8,0.8)) + 
@@ -328,7 +396,8 @@ ggplot(lake_avg, aes(x = date, y = secchi, color = mission,shape = mission)) +
   scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
   theme_few() +
   labs(title = 'Yojoa Secchi 2006\nwhole-lake average',
-       subtitle = '7/1 day window, 5 day met\nhigh data stringency\nstepwise regression',
+       subtitle = '7/1 day window, 5 day met\nmoderate data stringency\nstepwise regression',
+       y = 'median Secchi (m)',
        color = 'data source', shape = 'data source') +
   theme(legend.position = c(0.8,0.8)) + 
   scale_shape_manual(values = c(19,19,19,19,1)) +
@@ -346,7 +415,8 @@ ggplot(lake_avg, aes(x = date, y = secchi, color = mission, shape = mission)) +
   scale_color_manual(values = c('grey10','grey30','grey50','grey70','blue')) + 
   theme_few() +
   labs(title = 'Yojoa Secchi 2018-2022\nwhole-lake average',
-       subtitle = '7/1 day window, 5 day met\nhigh data stringency\nstepwise regression',
+       subtitle = '7/1 day window, 5 day met\nmoderate data stringency\nstepwise regression',
+       y = 'median Secchi (m)',
        color = 'data source', shape = 'data source') +
   theme(legend.position = c(0.8,0.8)) + 
   scale_shape_manual(values = c(19,19,19,19,1)) +

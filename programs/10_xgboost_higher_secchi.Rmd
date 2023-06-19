@@ -917,7 +917,8 @@ situ_stack <- read_csv('data/in-situ/Secchi_completedataset.csv') %>%
          date = mdy(date)) %>%
   filter(!is.na(secchi)) %>%
   mutate(mission = 'Measured') %>%
-  bind_rows(full_stack_simp)
+  bind_rows(full_stack_simp)%>% 
+  mutate(location = gsub(' ', '', location))
 ```
 
 Let's look at each of the site records alongside the Landsat-estimated Secchi depth.
