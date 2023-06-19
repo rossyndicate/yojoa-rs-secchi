@@ -33,11 +33,13 @@ Sensing Imagery of Lake Yojoa in Honduras, to estimate Yojoa water
 clarity. You can read more about this lake
 [here](https://www.sciencedirect.com/science/article/pii/S0048969722015479).
 
-In this 'extra paranoid' approach, we subset the Secchi-Landsat matchups
+In this very stringent approach, we subset the Secchi-Landsat matchups
 by Landsat flyover, resulting in no image-date crossover between the
 train, test, or validation datasets. 
 
 ## Load matchup data
+
+Note, we do not use the 'weight' column in this analysis, but create it here for the next script algorithm development, `10_xgboost_higher_secchi`.
 
 ```{r}
 #list all the files in the match directory
@@ -54,11 +56,14 @@ prepData = function(df) {
 
 #load the matchup files 
 threeDay = read.csv(file.path(match_dir, match[grepl('three', match) & !grepl('us', match)])) %>%
-  prepData(.)
+  prepData(.) %>% 
+  mutate(weight = secchi/max(secchi)*10)
 fiveDay = read.csv(file.path(match_dir, match[grepl('five', match) & !grepl('us', match)])) %>%
-  prepData(.)
+  prepData(.) %>% 
+  mutate(weight = secchi/max(secchi)*10)
 jemma = read.csv(file.path(match_dir, match[grepl('jemma', match)])) %>% 
-  prepData(.)
+  prepData(.) %>% 
+  mutate(weight = secchi/max(secchi)*10)
 
 ```
 
@@ -656,8 +661,8 @@ mod_summary_3d_71m %>% select(best_message)
 # most of best models are overfit, so looking for train/test RMSE that are closer
 optimized_booster_3d_3m <- mod_summary_3d_3m$mod[4][[1]]
 optimized_booster_3d_5m <- mod_summary_3d_5m$mod[6][[1]]
-optimized_booster_3d_51m <- mod_summary_3d_51m$mod[4][[1]]
-optimized_booster_3d_71m <- mod_summary_3d_71m$mod[11][[1]]
+optimized_booster_3d_51m <- mod_summary_3d_51m$mod[17][[1]]
+optimized_booster_3d_71m <- mod_summary_3d_71m$mod[16][[1]]
 #note that pretty much all of these are overfit.
 
 # Apply best mod
@@ -692,10 +697,10 @@ mod_summary_5d_71m %>% select(best_message)
 
 ```{r}
 # most of best models are overfit, so looking for train/test RMSE that are closer
-optimized_booster_5d_3m <- mod_summary_5d_3m$mod[5][[1]]
-optimized_booster_5d_5m <- mod_summary_5d_5m$mod[4][[1]]
-optimized_booster_5d_51m <- mod_summary_5d_51m$mod[17][[1]]
-optimized_booster_5d_71m <- mod_summary_5d_71m$mod[7][[1]]
+optimized_booster_5d_3m <- mod_summary_5d_3m$mod[2][[1]]
+optimized_booster_5d_5m <- mod_summary_5d_5m$mod[7][[1]]
+optimized_booster_5d_51m <- mod_summary_5d_51m$mod[14][[1]]
+optimized_booster_5d_71m <- mod_summary_5d_71m$mod[13][[1]]
 # none of the train/test rmse's are particularly close
 
 # Apply best mod
@@ -729,10 +734,10 @@ mod_summary_jd_71m %>% select(best_message)
 ```
 
 ```{r}
-optimized_booster_jd_3m <- mod_summary_jd_3m$mod[15][[1]]
+optimized_booster_jd_3m <- mod_summary_jd_3m$mod[3][[1]]
 optimized_booster_jd_5m <- mod_summary_jd_5m$mod[1][[1]]
-optimized_booster_jd_51m <- mod_summary_jd_51m$mod[5][[1]]
-optimized_booster_jd_71m <- mod_summary_jd_71m$mod[1][[1]]
+optimized_booster_jd_51m <- mod_summary_jd_51m$mod[14][[1]]
+optimized_booster_jd_71m <- mod_summary_jd_71m$mod[9][[1]]
 
 # Apply best mod
 preds_jd <- val_j %>% 
@@ -772,7 +777,7 @@ ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_3m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nthree day matchups, band and 3-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -790,7 +795,7 @@ ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_5m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nthree day matchups, band and 5-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -808,7 +813,7 @@ ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_51m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nthree day matchups, band and 5/1-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -826,7 +831,7 @@ ggplot(preds_3, aes(x = secchi, y = pred_secchi_3d_71m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nthree day matchups, band and 7/1-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -853,7 +858,7 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_3m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nfive day matchups, band and 3-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -871,7 +876,7 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_5m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nfive day matchups, band and 5-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -889,7 +894,7 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_51m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nfive day matchups, band and 5/1-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -907,7 +912,7 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_71m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\nfive day matchups, band and 7/1-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -932,7 +937,7 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_3m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\n7/1 day matchups, band and 3-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -950,7 +955,7 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_5m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\n7/1 day matchups, band and 5-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -968,7 +973,7 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_51m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\n7/1 day matchups, band and 5/1-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -986,7 +991,7 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_71m)) +
                label.y = Inf, 
                vjust = 1.3) +
   labs(title = 'Yojoa Secchi xgboost Validation Data\n7/1 day matchups, band and 7/1-day met summaries', 
-       subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
+       subtitle = 'high data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
   theme_bw()+
@@ -994,11 +999,11 @@ ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_71m)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
-The correlations here are quite strong and linear, but they are all pretty flat and will definitly over predict low secchi and underpredict high secchi.
+The correlations here are quite strong and linear, but they are all pretty flat and will definitely over predict low Secchi and under predict high Secchi.
 
 # Applying model to full data
 
-Choosing a 'best performing' model for these results is difficult. Because the predicted range is so small in the local knowledge set, I'm going to dismiss those from consideration. The 3-day window did not perform well at all. With some reservation, I'm going to apply the 5-day window with 7/1-day met summaries here as the best model from this batch.
+Choosing a 'best performing' model for these results is difficult. Because the predicted range is so small in the local knowledge set, I'm going to dismiss those from consideration. The 3-day window did not perform well by RMSE, but 'looked' better than the 5-day window.  With some reservation, I'm going to apply the 5-day window with 7/1-day met summaries here as the best model from this batch. This could easily be swapped with the three-day window and 5/1 day met summary.
 
 ```{r}
 features = band_met71_feats
