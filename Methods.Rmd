@@ -1,8 +1,8 @@
 ---
 title: "Yojoa Remote Sensing Methods"
-author: B Steele, Matt Ross
-format: html
-editor: visual
+author: "B Steele, Matt Ross"
+date: "`r Sys.Date()"
+output: html_document
 ---
 
 ```{r, include = F}
