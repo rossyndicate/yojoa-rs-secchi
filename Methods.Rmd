@@ -1,75 +1,138 @@
 ---
 title: "Yojoa Remote Sensing Methods"
 author: "B Steele, Matt Ross"
-date: "`r Sys.Date()"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r, include = F}
+```{r setup, include = F}
 library(tidyverse)
 library(ggthemes)
+library(readr)
 
+is_dir = 'data/in-situ/'
 rs_dir = 'data/upstreamRS/'
 match_dir = 'data/matchups/'
+models_dir = 'data/models/'
 ```
 
 # Methods
 
-```{r, include = F}
-stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv'))
-match = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
-
-ls5_tot = stack %>% 
-  filter(mission == 'LANDSAT_5') 
-
-ls7_tot = stack %>% 
-  filter(mission == 'LANDSAT_7') 
-
-ls8_tot = stack %>% 
-  filter(mission == 'LANDSAT_8') 
-
-ls9_tot = stack %>% 
-  filter(mission == 'LANDSAT_9') 
-
-ls5_match = match %>% 
-  filter(mission == 'LANDSAT_5')
-
-ls7_match = match %>% 
-  filter(mission == 'LANDSAT_7') 
-
-ls8_match = match %>% 
-  filter(mission == 'LANDSAT_8') 
-
-ls9_match = match %>% 
-  filter(mission == 'LANDSAT_9') 
-
+```{r load data, include = F}
+stack = read_csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv'))
+secchi = read_csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
+  mutate(secci = as.numeric(secchi)) %>% 
+  filter(!is.na(secchi)) %>% 
+  mutate(location = gsub(' ', '', location))
+match5 = read_csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
+match71 = read_csv(file.path(match_dir, 'jemma_multiDay_LS-Secchi_matchups_n238.csv'))
 ```
 
 ## Landsat Stack
 
-Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. (2021). The Landsat stack was comprised of `r length(unique(stack$system.index))` unique scenes comprised of data from Landsat 5, 7, 8, and 9 (Table 1). Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data to account for differences in scaling factors between collections. Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2). Inter-mission handoff coefficients to standardize Rrs values due to slight changes in sensors and atmospheric correction between missions (Gardner, et al. 2021) were calculated based on Landsat Collection 2 data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in Supplemental Methods). All Landsat data were acquired using the Google Earth Engine Python Application Programming Interface (API) in RStudio version 2023.03.0, R version 4.2.3 (R Core Team 2023), and Python version 3.8 (Python Software Foundation, <https://www.python.org/>).
+Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006, Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling locations in Lake Yojoa following the methods described in Topp, et al. (2021). The Landsat stack was comprised of `r length(unique(stack$system.index))` unique scenes comprised of data from Landsat 5, 7, 8, and 9 (Table 1). Minor adaptations were made for the transition for Collection 1 to Collection 2 Landsat data to account for differences in scaling factors between collections. Data were filtered for reasonable values for water reflectance (-0.01 \< Rrs \< 0.2) for all bands (Blue, Red, Green, Near Infrared, Shortwave Infrared 1, Shortwave Infrared 2). Inter-mission handoff coefficients to standardize Rrs values due to slight changes in sensors and atmospheric correction between missions (Gardner, et al. 2021) were calculated based on Landsat Collection 2 data acquired from all lakes greater than 25 hectacres within Guatemala, Honduras, and El Salvador (described in *Regional Handoff Coefficients* below). All Landsat data were acquired using the Google Earth Engine Python Application Programming Interface (API) in RStudio version 2023.03.0, R version 4.2.3 (R Core Team 2023), and Python version 3.8 (Python Software Foundation, <https://www.python.org/>).
 
-| Landsat Mission | Number of Unique Scenes                  | Number of Unique Scenes with ±5 day matchups | Total number of Available Landsat-Location overpasses | Total number of Landsat-*in situ* Secchi matches |
-|---------------|---------------|---------------|---------------|---------------|
-| Landsat 5       | `r length(unique(ls5_tot$system.index))` | `r length(unique(ls5_match$system.index))`   | `r nrow(ls5_tot)`                                     | `r nrow(ls5_match)`                              |
-| Landsat 7       | `r length(unique(ls7_tot$system.index))` | `r length(unique(ls7_match$system.index))`   | `r nrow(ls7_tot)`                                     | `r nrow(ls7_match)`                              |
-| Landsat 8       | `r length(unique(ls8_tot$system.index))` | `r length(unique(ls8_match$system.index))`   | `r nrow(ls8_tot)`                                     | `r nrow(ls8_match)`                              |
-| Landsat 9       | `r length(unique(ls9_tot$system.index))` | `r length(unique(ls9_match$system.index))`   | `r nrow(ls9_tot)`                                     | `r nrow(ls9_match)`                              |
-| Total           | `r length(unique(stack$system.index))`   | `r length(unique(match$syste.index))`        | `r nrow(stack)`                                       | `r nrow(match)`                                  |
+```{r getCount, echo = F}
+# save function to get row count
+getCount <- function(dataset, miss, countType) {
+  if (miss == 'all') {
+    df <- dataset
+  } else {
+    df <- dataset %>% 
+      filter(mission == miss)
+  }
+  if (countType == 'imageDate') {
+    length(unique(df$date))
+  } else {
+    if (countType == 'matches') {
+      nrow(df)
+    } else {
+      print('oops')
+    }
+  }
+}
+```
 
-: Table 1
+| Landsat Mission | Number of Unique Landsat Scenes               | Number of Unique Landsat Scenes with ±5 day matchups | **Number of Unique Landsat Scenes with ±7/1 day matchups** |
+|------------------|------------------|------------------|------------------|
+| Landsat 5       | `r getCount(stack, 'LANDSAT_5', 'imageDate')` | `r getCount(match5, 'LANDSAT_5', 'imageDate')`       | `r getCount(match71, 'LANDSAT_5', 'imageDate')`            |
+| Landsat 7       | `r getCount(stack, 'LANDSAT_7', 'imageDate')` | `r getCount(match5, 'LANDSAT_7', 'imageDate')`       | `r getCount(match71, 'LANDSAT_7', 'imageDate')`            |
+| Landsat 8       | `r getCount(stack, 'LANDSAT_8', 'imageDate')` | `r getCount(match5, 'LANDSAT_8', 'imageDate')`       | `r getCount(match71, 'LANDSAT_8', 'imageDate')`            |
+| Landsat 9       | `r getCount(stack, 'LANDSAT_9', 'imageDate')` | `r getCount(match5, 'LANDSAT_9', 'imageDate')`       | `r getCount(match71, 'LANDSAT_9', 'imageDate')`            |
+| Total           | `r getCount(stack, 'all', 'imageDate')`       | `r getCount(match5, 'all', 'imageDate')`             | `r getCount(match71, 'all', 'imageDate')`                  |
+
+: Table 1. Summary of number of unique Landsat scenes in the full Landsat stack, the ±5 day matchup dataset, and the ±7/1 day dataset.
+
+| Landsat Mission | Number of Valid Location-Landsat Images     | Number of Valid Location-Landsat Images in ±5 day matchups | **Number of** Valid Location-Landsat Images in **±7/1 day matchups** |
+|------------------|------------------|------------------|------------------|
+| Landsat 5       | `r getCount(stack, 'LANDSAT_5', 'matches')` | `r getCount(match5, 'LANDSAT_5', 'matches')`               | `r getCount(match71, 'LANDSAT_5', 'matches')`                        |
+| Landsat 7       | `r getCount(stack, 'LANDSAT_7', 'matches')` | `r getCount(match5, 'LANDSAT_7', 'matches')`               | `r getCount(match71, 'LANDSAT_7', 'matches')`                        |
+| Landsat 8       | `r getCount(stack, 'LANDSAT_8', 'matches')` | `r getCount(match5, 'LANDSAT_8', 'matches')`               | `r getCount(match71, 'LANDSAT_8', 'matches')`                        |
+| Landsat 9       | `r getCount(stack, 'LANDSAT_9', 'matches')` | `r getCount(match5, 'LANDSAT_9', 'matches')`               | `r getCount(match71, 'LANDSAT_9', 'matches')`                        |
+| Total           | `r getCount(stack, 'all', 'matches')`       | `r getCount(match5, 'all', 'matches')`                     | `r getCount(match71, 'all', 'matches')`                              |
+
+: Table 2. Summary of number of valid Landsat observations for individual locations in Yojoa in the full Landsat stack, the ±5 day matchup dataset, and the ±7/1 day dataset.
+
+```{r}
+getSiteCount <- function(dataset, site) {
+  if (site == 'all') {
+    df <- dataset
+    nrow(df)
+  } else {
+    df <- dataset %>% 
+      filter(location == site)
+    nrow(df)
+  }
+}
+```
+
+| Site  | Number of Secchi Measurements   | Number of Secchi-Landsat Matchups in ±5 day dataset | Number of Secchi-Landsat Matchups in ±7/1 day dataset. |
+|--------------|--------------|--------------|--------------|
+| A     | `r getSiteCount(secchi, 'A')`   | `r getSiteCount(match5, 'A')`                       | `r getSiteCount(match71, 'A')`                         |
+| B     | `r getSiteCount(secchi, 'B')`   | `r getSiteCount(match5, 'B')`                       | `r getSiteCount(match71, 'B')`                         |
+| C     | `r getSiteCount(secchi, 'C')`   | `r getSiteCount(match5, 'C')`                       | `r getSiteCount(match71, 'C')`                         |
+| D     | `r getSiteCount(secchi, 'D')`   | `r getSiteCount(match5, 'D')`                       | `r getSiteCount(match71, 'D')`                         |
+| E     | `r getSiteCount(secchi, 'E')`   | `r getSiteCount(match5, 'E')`                       | `r getSiteCount(match71, 'E')`                         |
+| F     | `r getSiteCount(secchi, 'F')`   | `r getSiteCount(match5, 'F')`                       | `r getSiteCount(match71, 'F')`                         |
+| G     | `r getSiteCount(secchi, 'G')`   | `r getSiteCount(match5, 'G')`                       | `r getSiteCount(match71, 'G')`                         |
+| H     | `r getSiteCount(secchi, 'H')`   | `r getSiteCount(match5, 'H')`                       | `r getSiteCount(match71, 'H')`                         |
+| I     | `r getSiteCount(secchi, 'I')`   | `r getSiteCount(match5, 'I')`                       | `r getSiteCount(match71, 'I')`                         |
+| J     | `r getSiteCount(secchi, 'J')`   | `r getSiteCount(match5, 'J')`                       | `r getSiteCount(match71, 'J')`                         |
+| K     | `r getSiteCount(secchi, 'K')`   | `r getSiteCount(match5, 'K')`                       | `r getSiteCount(match71, 'K')`                         |
+| L     | `r getSiteCount(secchi, 'L')`   | `r getSiteCount(match5, 'L')`                       | `r getSiteCount(match71, 'L')`                         |
+| M     | `r getSiteCount(secchi, 'M')`   | `r getSiteCount(match5, 'M')`                       | `r getSiteCount(match71, 'M')`                         |
+| N     | `r getSiteCount(secchi, 'N')`   | `r getSiteCount(match5, 'N')`                       | `r getSiteCount(match71, 'N')`                         |
+| O     | `r getSiteCount(secchi, 'O')`   | `r getSiteCount(match5, 'O')`                       | `r getSiteCount(match71, 'O')`                         |
+| P     | `r getSiteCount(secchi, 'P')`   | `r getSiteCount(match5, 'P')`                       | `r getSiteCount(match71, 'P')`                         |
+| Q     | `r getSiteCount(secchi, 'Q')`   | `r getSiteCount(match5, 'Q')`                       | `r getSiteCount(match71, 'Q')`                         |
+| R     | `r getSiteCount(secchi, 'R')`   | `r getSiteCount(match5, 'R')`                       | `r getSiteCount(match71, 'R')`                         |
+| Total | `r getSiteCount(secchi, 'all')` | `r getSiteCount(match5, 'all')`                     | `r getSiteCount(match71, 'all')`                       |
+
+: Table 3. Secchi measurement counts per site in the *in situ* record, the ±5-day matchup dataset,and the ±7/1-day matchup dataset.
+
+#### Regional Handoff Coefficients
+
+Median Landsat Collection 2 Surface Reflectance values were obtained for the Chebyshev center (Yang, 2020) for all lakes greater than 25 hectacres within or touching the boundaries of the countries of Guatemala, Honduras, and El Salvador from the spatial dataset produced by Messager, et al. (2016). Acquisition of these data followed the same methods as those for Lake Yojoa described above.
 
 ## Secchi-RS matchups
 
-Secchi data were matched with records from the Landsat remote sensing stack at a number of time windows: same, one, two, three, and five day windows. Windows up to ±7 days have yielded reasonable results when paired with remote sensing data (Kloiber, et al. 2002). We avoided discrete over-matching of our data by assuring that each satellite overpass instance was only paired with the nearest-in-time Secchi measurement and that each discrete Secchi measurement was only paired with a single, nearest-in-time valid satellite overpass.
+Secchi data were matched with records from the Landsat remote sensing stack at a number of time windows: same, one, two, three, and five day windows. In addition to these standard windows, we employed a variable window defined by local knowledge. In this method, we allowed for matchups up to ±7 days for all months where the conditions of the lake are relatively consistent and in October and November, months that often have sudden clarity changes, only matches ±1 day were permitted. Windows up to ±7 days have yielded reasonable results when paired with remote sensing data (Kloiber, et al. 2002). We avoided discrete over-matching of our data by assuring that each satellite overpass instance was only paired with the nearest-in-time Secchi measurement and that each discrete Secchi measurement was only paired with a single, nearest-in-time valid satellite overpass. Only matchup datasets of ±5 days and ±7/1 produced reasonable models and are the only datasets summarized in this methods overview.
 
 ## Climate Data
 
-Climate data were aqcuired from the ERA5 dataset (Muñoz, 2019) in the Google Earth Engine Code Editor (Gorelick, 2017) from a single data point at the approximate geographical center of Lake Yojoa (14.8768°N, 87.9791°W) for all available data. ERA5 data provide daily modeled values for an extensive list of parameters; however, we only used total precipitation, mean air temperature, total solar radiation, and mean wind speed in our analysis. These data were aggregated for the previous 1 day, 3 days, and 5 days.
+Climate data were aqcuired from the ERA5 dataset (Muñoz, 2019) in the Google Earth Engine Code Editor (Gorelick, 2017) from a single data point at the approximate geographical center of Lake Yojoa (14.8768°N, 87.9791°W) for all available data. ERA5 data provide daily modeled values for an extensive list of parameters; however, we only used total precipitation, mean air temperature, total solar radiation, and mean wind speed in our analysis. These data were aggregated for the previous 3, 5, and 7 days.
 
 ## xgboost Model
 
-We used the R package {xgboost} (Chen, et al. 2023) to develop the best performing gradient tree boost algorithm for these data. The best performing model that balanced matchups and model variance were those built on matchups within a ±5 day window and used ERA5 data from the previous 5 days. Model features were median Rrs values for the blue, green, red and near infrared bands, the ratio of red to green, blue to green, red to blue, green to red, total solar radiation, maximum air temperature, minimum air temperature, total precipitation, and mean wind speed for the previous 5 days.
+We used the R package {xgboost} (Chen, et al. 2023) to develop the best performing gradient tree boost algorithm for these data. Model features were median Rrs values for the blue, green, red and near infrared bands, the ratio of red to green, blue to green, red to blue, green to red, total solar radiation, maximum air temperature, mean air temperature, minimum air temperature, total precipitation, and mean wind speed. Various input feature window combinations were tested, including providing the program with the previous day's meteorology as well as a summary of the previous 5 or 7 days.
+
+We experimented with two data handling methods with varying stringency. Both methods used train-test-validation datasets, where the train and test were provided for model development and the validation were hold out data to test performance independently of model development. The first method split the data as 60% of matchups as the training dataset, 20% for testing, and 20% for validation. The very stringent method split the Landsat image-dates with the same proportions, so that there was no image-date crossover between the train, test, or validation dataset.
+
+We used a grid search method to determine optimal hyperparameters for the model, partitioning the top 20 performing models from the grid search, as measured by lowest RMSE. From these models, we selected the booster that had the lowest RMSE and a train-test RMSE that was within 0.15m to avoid selecting an overfit model. If no models met these conditions the one with the closest train-test RMSE was selected as the optimal {xgboost} model.
+
+## Stepwise Regression Model
+
+We used the R packages {caret} (Kuhn, 2008) and {leaps} (??TLboFcba, 2020??) to perform backwards stepwise regression (CITATION). We tested the same combinations of matchup windows and meteorological data as with the {xgboost} package, except all input data were normalized to values between 0 and 1 using a min-max scaling method.
 
 ------------------------------------------------------------------------
 
@@ -77,21 +140,15 @@ We used the R package {xgboost} (Chen, et al. 2023) to develop the best performi
 
 ------------------------------------------------------------------------
 
-# Supplemental Methods
-
-## Regional Handoff Coefficients
-
-Median Landsat Collection 2 Surface Reflectance values were obtained for the Chebyshev center (Yang, 2020) for all lakes greater than 25 hectacres within or touching the boundaries of the countries of Guatemala, Honduras, and El Salvador from the spatial dataset produced by Messager, et al. (2016). Acquisition of these data followed the same methods as those for Lake Yojoa described above.
-
-------------------------------------------------------------------------
-
 # Acknowledgements
 
 Landsat Collection 2 Level 2 Science Products courtesy of the U.S. Geological Survey.
 
+------------------------------------------------------------------------
+
 # Citations
 
-Chen T, He T, Benesty M, Khotilovich V, Tang Y, Cho H, Chen K, Mitchell R, Cano I, Zhou T, Li M, Xie J, Lin M, Geng Y, Li Y, Yuan J (2023). \_xgboost: Extreme Gradient Boosting\_. R package version 1.7.3.1, \<https://CRAN.R-project.org/package=xgboost\>.
+Chen T, He T, Benesty M, Khotilovich V, Tang Y, Cho H, Chen K, Mitchell R, Cano I, Zhou T, Li M, Xie J, Lin M, Geng Y, Li Y, Yuan J (2023). \_xgboost: Extreme Gradient Boosting\_. R package version 1.7.3.1, \<[[https://CRAN.R-project.org/package=xgboost\\\\](https://CRAN.R-project.org/package=xgboost){.uri}](%5Bhttps://CRAN.R-project.org/package=xgboost%5D(https://CRAN.R-project.org/package=xgboost)%7B.uri%7D){.uri}\>.
 
 Gardner, J. R., Yang, X., Topp, S. N., Ross, M. R.. V., Altenau, E. H., & Pavelsky, T. M. (2021). The color of rivers. *Geophysical Research Letters*, 48, e2020GL088946. <https://doi.org/10.1029/2020GL088946>
 
@@ -99,18 +156,20 @@ Gorelick, N., Hancher, M., Dixon, M., Ilyushchenko, S., Thau, D., & Moore, R. (2
 
 Jones, J. (2019). Improved automated detection of subpixel-scale inundation-revised dynamic surface water extent (DSWE) Partial surface water tests. Remote Sensing, **11**(4), 374. <https://doi.org/10.3390/rs11040374>
 
+Kuhn, M. (2008). Building Predictive Models in R Using the caret Package. Journal of Statistical Software, 28(5), 1--26. <https://doi.org/10.18637/jss.v028.i05>
+
 Kloiber, S. M., Brezonik, P. L., Olmanson, L. G., & Bauer, M. E. (2002). A procedure for regional lake water clarity assessment using Landsat multispectral data. *Remote sensing of Environment*, *82*(1), 38-47.
 
 Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30).
 
-Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimating the volume and age of water stored in global lakes using a geo-statistical approach. Nature Communications, 7: 13603. https://doi.org/10.1038/ncomms13603
+Messager, M.L., Lehner, B., Grill, G., Nedeva, I., Schmitt, O. (2016). Estimating the volume and age of water stored in global lakes using a geo-statistical approach. Nature Communications, 7: 13603. <https://doi.org/10.1038/ncomms13603>
 
 Masek, J.G., Vermote, E.F., Saleous N.E., Wolfe, R., Hall, F.G., Huemmrich, K.F., Gao, F., Kutler, J., and Lim, T-K. (2006). A Landsat surface reflectance dataset for North America, 1990--2000. IEEE Geoscience and Remote Sensing Letters 3(1):68-72. <http://dx.doi.org/10.1109/LGRS.2005.857030>.
 
-R Core Team (2023). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+R Core Team (2023). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL <https://www.R-project.org/>.
 
 Topp, S. N., Pavelsky, T. M., Dugan, H. A., Yang, X., Gardner, J., & Ross, M. R. V. (2021). Shifting patterns of summer lake color phenology in over 26,000 US lakes. *Water Resources Research*, 57, e2020WR029123. <https://doi.org/10.1029/2020WR029123>
 
 Vermote, E., Justice, C., Claverie, M., & Franch, B. (2016). Preliminary analysis of the performance of the Landsat 8/OLI land surface reflectance product. Remote Sensing of Environment. <http://dx.doi.org/10.1016/j.rse.2016.04.008>.
 
-Yang, Xiao. (2020). Deepest point calculation for any given polygon using Google Earth Engine JavaScript API (Version v2). Zenodo. https://doi.org/10.5281/zenodo.6341960
+Yang, Xiao. (2020). Deepest point calculation for any given polygon using Google Earth Engine JavaScript API (Version v2). Zenodo. <https://doi.org/10.5281/zenodo.6341960>
