@@ -1,7 +1,7 @@
 ---
 title: "2_LSC2_secchi_matchup"
 author: "B Steele"
-date: "2023-03-03"
+date: "2023-05-26"
 output: html_document
 ---
 
@@ -29,10 +29,29 @@ str(secchi)
 #there are duplicated records in here, remove them
 secchi = secchi[!duplicated(secchi),]
 
-ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-04-17.csv')) %>% 
-  mutate(date = as.Date(date)) 
+ls = read.csv(file.path(coll_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv')) %>% 
+  mutate(date = as.Date(date))  %>% 
+  mutate(RN= med_Red_corr/med_Nir_corr,
+           BG= med_Blue_corr/med_Green_corr,
+           RB= med_Red_corr/med_Blue_corr,
+           GB = med_Green_corr/med_Blue_corr)
 str(ls)
 ```
+
+## Normalize the SR and met data
+
+While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for comparison with the stepwise regression method. Common methods of normalization include scaling and zscores. While most of the data is both non-normally distributed and/or skewed, we'll use min-max scaling to normalize.
+
+```{r}
+ls = ls %>% 
+  mutate(across(c(med_Blue_corr:med_Swir2_corr, tot_sol_rad_KJpm2_3:wind_speed_mps_prev, RN:GB),
+                list(scaled = ~(. - min(., na.rm = T)) / (max(., na.rm = T) - min(., na.rm = T))), 
+                .names = "{col}_scaled")) 
+names(ls)
+write.csv(ls, file.path(coll_dir, paste0('yojoa_corr_rrs_met_scaled_v', Sys.Date(),'.csv')), row.names = F)
+```
+
+# Create matchups
 
 And join them together (this is the list of 1:1 matchups)
 
@@ -47,19 +66,56 @@ And now we can move out from there:
 over_match = secchi %>% 
   rename(obs_date = date) %>% 
   full_join(ls, secchi, by = 'location') %>% 
-  mutate(date_diff = obs_date-date) #calculate the time difference
+  mutate(date_diff = obs_date-date) %>%  #calculate the time difference
+  relocate(obs_date, date, location, date_diff)
 
+# in order to not overmatch on either the in-situ location or the satellite (we want distinct, closest matches for each of these) we need to iteratively summarize to the closest match per satellite per observation data and location, then limit only one satelite image per location and flyover date
 oneDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(1))
+  filter(abs(date_diff) <= days(1))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 twoDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(2))
+  filter(abs(date_diff) <= days(2))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 threeDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(3))
+  filter(abs(date_diff) <= days(3))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 fourDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(4))
+  filter(abs(date_diff) <= days(4))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first)%>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 fiveDay_matchups = over_match %>% 
-  filter(abs(date_diff) <= days(5))
+  filter(abs(date_diff) <= days(5))%>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(obs_date, location, mission) %>% 
+  summarize_all(first) %>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 
+#per local knowledge, oct and nov can have very immediate changes, and things are pretty stable otherwise.
+multi_match = over_match %>% 
+  mutate(month = format(obs_date, '%m')) %>% 
+  filter((month %in% c(10,11) & abs(date_diff) < days(1) |
+            !(month %in% c(10,11)) & abs(date_diff) < days(7))) %>% 
+  arrange(abs(date_diff)) %>% 
+  group_by(date, location) %>% 
+  summarize_all(first) %>% 
+  group_by(date, location) %>% 
+  summarize_all(first)
 ```
 
 ## Export matchups
@@ -70,4 +126,5 @@ write.csv(oneDay_matchups, file.path(match_dir, paste0('oneDay_LS-Secchi_matchup
 write.csv(twoDay_matchups, file.path(match_dir, paste0('twoDay_LS-Secchi_matchups_n', nrow(twoDay_matchups), '.csv')), row.names = F)
 write.csv(threeDay_matchups, file.path(match_dir, paste0('threeDay_LS-Secchi_matchups_n', nrow(threeDay_matchups), '.csv')), row.names = F)
 write.csv(fiveDay_matchups, file.path(match_dir, paste0('fiveDay_LS-Secchi_matchups_n', nrow(fiveDay_matchups), '.csv')), row.names = F)
+write.csv(multi_match, file.path(match_dir, paste0('jemma_multiDay_LS-Secchi_matchups_n', nrow(multi_match), '.csv')), row.names = F)
 ```

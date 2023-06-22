@@ -10,6 +10,7 @@ library(tidyverse)
 library(ggthemes)
 library(RcppRoll)
 library(googledrive)
+library(lubridate)
 
 #point to directories
 drv_dir = 'data/fromDrive/'
@@ -17,7 +18,6 @@ era_dir = 'data/era5_met/'
 
 #authenticate drive
 drive_auth()
-1 #this will select the first account option in google drive
 ```
 
 # Purpose
@@ -66,7 +66,18 @@ era5_sub = era5 %>%
          wind_speed_mps)
 ```
 
-### Summarize data in 3,5,7 day summaries
+### Summarize data in 1,3,5,7 day summaries
+
+Previous day's weather
+```{r}
+previous = era5_sub %>% 
+  mutate(date = date + days(1)) %>% 
+  rename_with(~paste0(., '_prev'),
+              c('solar_rad_Jpm2', 'precip_m', 'air_temp_degK', 'wind_speed_mps')) %>% 
+  mutate(solar_rad_KJpm2_prev = solar_rad_Jpm2_prev*0.001) %>% 
+  select(-solar_rad_Jpm2_prev)
+```
+
 
 Previous 3 days summary
 
@@ -75,6 +86,8 @@ threeday = as.data.frame(era5_sub$date[3:nrow(era5_sub)])
 colnames(threeday) = 'date'
 threeday$tot_sol_rad_KJpm2_3 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 3)*0.001
 threeday$mean_temp_degK_3 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 3)
+threeday$min_temp_degK_3 = roll_min(x  = era5_sub$air_temp_degK, align = 'right', 3)
+threeday$max_temp_degK_3 = roll_max(x  = era5_sub$air_temp_degK, align = 'right', 3)
 threeday$tot_precip_m_3 = roll_sum(x  = era5_sub$precip_m, align = 'right', 3)
 threeday$mean_wind_mps_3 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 3)
 ```
@@ -86,6 +99,8 @@ fiveday = as.data.frame(era5_sub$date[5:nrow(era5_sub)])
 colnames(fiveday) = 'date'
 fiveday$tot_sol_rad_KJpm2_5 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 5)*0.001
 fiveday$mean_temp_degK_5 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 5)
+fiveday$min_temp_degK_5 = roll_min(x  = era5_sub$air_temp_degK, align = 'right', 5)
+fiveday$max_temp_degK_5 = roll_max(x  = era5_sub$air_temp_degK, align = 'right', 5)
 fiveday$tot_precip_m_5 = roll_sum(x  = era5_sub$precip_m, align = 'right', 5)
 fiveday$mean_wind_mps_5 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 5)
 ```
@@ -97,18 +112,24 @@ sevenday = as.data.frame(era5_sub$date[7:nrow(era5_sub)])
 colnames(sevenday) = 'date'
 sevenday$tot_sol_rad_KJpm2_7 = roll_sum(x = era5_sub$solar_rad_Jpm2, align = 'right', 7)*0.001
 sevenday$mean_temp_degK_7 = roll_mean(x  = era5_sub$air_temp_degK, align = 'right', 7)
+sevenday$min_temp_degK_7 = roll_min(x  = era5_sub$air_temp_degK, align = 'right', 7)
+sevenday$max_temp_degK_7 = roll_max(x  = era5_sub$air_temp_degK, align = 'right', 7)
 sevenday$tot_precip_m_7 = roll_sum(x  = era5_sub$precip_m, align = 'right', 7)
 sevenday$mean_wind_mps_7 = roll_mean(x  = era5_sub$wind_speed_mps, align = 'right', 7)
 ```
 
-Join them together and save the file
+Join them together, adjust date so that all cumulative data are prior to the Landsat/Secchi observation, and save the file
 
 ```{r}
-era5_summary = full_join(threeday, fiveday) %>% full_join(., sevenday)
+era5_summary = full_join(threeday, fiveday) %>% 
+  full_join(., sevenday) %>% 
+  mutate(date = date + days(1)) %>% 
+  full_join(., previous) %>% 
+  arrange(date)
 ```
 
 Save the file for use in modeling efforts
 
 ```{r}
-write.csv(era5_summary, file.path(era_dir, 'Yojoa_3-5-7day_summary_ERA5.csv'), row.names = F)
+write.csv(era5_summary, file.path(era_dir, 'Yojoa_1-3-5-7day_summary_ERA5.csv'), row.names = F)
 ```

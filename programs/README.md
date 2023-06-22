@@ -4,7 +4,7 @@ This directory contains the scripts that collate, harmonize, and generally munge
 
 ## Script descriptions
 
-* Script 1_RS_collate_harmonize.Rmd collates and harmonizes the output from GEE for the Yojoa in-lake locations
+* 1_RS_collate_harmonize.Rmd collates and harmonizes the output from GEE for the Yojoa in-lake locations
 
 * 2_Process_Summarize_ERA5.Rmd summarizes the ERA5 meteorological data in 3, 5, and 7 day windows.
 
@@ -17,6 +17,14 @@ This directory contains the scripts that collate, harmonize, and generally munge
 * 6_add_era5_data.Rmd: this script adds the ERA5 summaries to the band value correction dataset.
 
 * 7_LSC2_secchi_matchup.Rmd creates the matchup files found in the `data/matchups` folder
+
+* 8_xgboost_stringent.Rmd runs {xgboost} gbtree for Secchi with a stringent data policy. The stringent data method uses a train-test-val set for method assessment.
+
+* 9_xgboost_very_stringent.Rmd this method uses a train-test-val set where there is no overlap in scene-dates between any of the data sets.
+
+* 10_xgboost_higher_secchi.Rmd this method uses the very stringent data model and adds in a weight variable defined as secchi/max(secchi)*10.
+
+* 11_stepwise_regression_method.Rmd employs backwards stepwise regression method to develop a lighter-weight algorithm for Secchi estimation.
 
 Script 1_RS_collate_harmonize.Rmd assumes that you have run the Landsat stack files in the 'landsat_c2' folder within this repository or have access to the Drive folder with the output created in those scripts. You will not be able to run this code if you have not completed the LS stack run or if the output has not been shared with you.
 
