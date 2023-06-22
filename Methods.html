@@ -364,10 +364,10 @@ display: none;
 <p>Median Landsat Collection 2 Surface Reflectance (Masek, et al., 2006,
 Vermote, et al., 2016) values (Rrs) were obtained for the 18 sampling
 locations in Lake Yojoa following the methods described in Topp, et
-al. (2021). The Landsat stack was comprised of 550 unique scenes
+al. (2021). The Landsat stack was comprised of 542 unique scenes
 comprised of data from Landsat 5, 7, 8, and 9 (Table 1). This stack
-contained 6296 Rrs summaries (Table 2) at the 18 locations between the
-dates of 1985-03-28 and 2023-03-13. Minor adaptations were made for the
+contained 6188 Rrs summaries (Table 2) at the 18 locations between the
+dates of 1985-03-28 and 2022-12-31. Minor adaptations were made for the
 transition for Collection 1 to Collection 2 Landsat data to account for
 differences in scaling factors between collections. Rrs summaries
 included only ‘confident’ water pixels as defined by the dynamic surface
@@ -429,19 +429,19 @@ matchups</strong></th>
 </tr>
 <tr class="odd">
 <td>Landsat 8</td>
-<td>146</td>
+<td>143</td>
 <td>55</td>
 <td>52</td>
 </tr>
 <tr class="even">
 <td>Landsat 9</td>
-<td>20</td>
+<td>15</td>
 <td>3</td>
 <td>2</td>
 </tr>
 <tr class="odd">
 <td>Total</td>
-<td>546</td>
+<td>538</td>
 <td>76</td>
 <td>72</td>
 </tr>
@@ -481,19 +481,19 @@ matchup dataset, and the ±7/1 day dataset.</caption>
 </tr>
 <tr class="odd">
 <td>Landsat 8</td>
-<td>1814</td>
+<td>1765</td>
 <td>191</td>
 <td>185</td>
 </tr>
 <tr class="even">
 <td>Landsat 9</td>
-<td>194</td>
+<td>135</td>
 <td>3</td>
 <td>2</td>
 </tr>
 <tr class="odd">
 <td>Total</td>
-<td>6296</td>
+<td>6188</td>
 <td>237</td>
 <td>238</td>
 </tr>
@@ -720,16 +720,32 @@ model.</p>
 </div>
 <div id="stepwise-regression-model" class="section level2">
 <h2>Stepwise Regression Model</h2>
-<p>We used the R packages {caret} (Kuhn, 2008) and {leaps} (??TLboFcba,
-2020??) to perform backwards stepwise regression (CITATION). We tested
-the same combinations of matchup windows and meteorological data as with
-the {xgboost} package, except all input data were normalized to values
+<p>We used the R packages {caret} (Kuhn, 2008) and {leaps} (Lumley,
+2020) to perform backwards stepwise regression. We tested the same
+combinations of matchup windows and meteorological data as with the
+{xgboost} package, except all input data were normalized to values
 between 0 and 1 using a min-max scaling method. Because this method uses
 cross-wise validation (10 times cv), no test data were provided to the
 model. 70% of the data were used in model development and the remaining
 30% were holdout data to examine the results independently. Data
 partitioning was completed by total number of matchups not by image
 date.</p>
+</div>
+<div id="time-series-of-estimated-secchi" class="section level2">
+<h2>Time series of estimated Secchi</h2>
+<p>The time series of Secchi estimates from the four best performing
+models (one from each of the above models) have been calculated in a
+single file
+(<code>data/landsat_estimations/Yojoa_LS-derived_Secchi_estimates.csv</code>,
+created in <code>programs/12_apply_models.Rmd</code>). The four column
+names indicate the model used to create the Secchi estmiates. Keep in
+mind that input values of the features (the band and met data that
+define the model) that are outside of the range of values used to train
+the model can create equally out-of-range Secchi estimations in the
+stepwise regression model. In general, {xgboost} handles these outliers
+better, but a very conservative and cautious approach dictates that
+Secchi estimations made with input values that are beyond the range of
+those in model development should be treated with skepticism.</p>
 <hr />
 </div>
 </div>
@@ -761,6 +777,8 @@ Package. Journal of Statistical Software, 28(5), 1–26. <a href="https://doi.or
 (2002). A procedure for regional lake water clarity assessment using
 Landsat multispectral data. <em>Remote sensing of Environment</em>,
 <em>82</em>(1), 38-47.</p>
+<p>Lumley, T. (2020). _leaps: Regression Subset Selection_. R package
+version 3.1, <a href="https://CRAN.R-project.org/package=leaps" class="uri">https://CRAN.R-project.org/package=leaps</a></p>
 <p>Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to
 present. Copernicus Climate Change Service (C3S) Climate Data Store
 (CDS). (2023-03-30).</p>

@@ -19,7 +19,8 @@ models_dir = 'data/models/'
 # Methods
 
 ```{r load data, include = F}
-stack = read_csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv'))
+stack = read_csv(file.path(rs_dir, 'yojoa_corr_rrs_met_v2023-06-15.csv')) %>% 
+  filter(date < ymd('2023-01-01'))
 secchi = read_csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
   mutate(secci = as.numeric(secchi)) %>% 
   filter(!is.na(secchi)) %>% 
@@ -142,7 +143,11 @@ To select the best optimal xgboost hyperparameters, we used a grid search method
 
 ## Stepwise Regression Model
 
-We used the R packages {caret} (Kuhn, 2008) and {leaps} (??TLboFcba, 2020??) to perform backwards stepwise regression (CITATION). We tested the same combinations of matchup windows and meteorological data as with the {xgboost} package, except all input data were normalized to values between 0 and 1 using a min-max scaling method. Because this method uses cross-wise validation (10 times cv), no test data were provided to the model. 70% of the data were used in model development and the remaining 30% were holdout data to examine the results independently. Data partitioning was completed by total number of matchups not by image date.
+We used the R packages {caret} (Kuhn, 2008) and {leaps} (Lumley, 2020) to perform backwards stepwise regression. We tested the same combinations of matchup windows and meteorological data as with the {xgboost} package, except all input data were normalized to values between 0 and 1 using a min-max scaling method. Because this method uses cross-wise validation (10 times cv), no test data were provided to the model. 70% of the data were used in model development and the remaining 30% were holdout data to examine the results independently. Data partitioning was completed by total number of matchups not by image date.
+
+## Time series of estimated Secchi
+
+The time series of Secchi estimates from the four best performing models (one from each of the above models) have been calculated in a single file (`data/landsat_estimations/Yojoa_LS-derived_Secchi_estimates.csv`, created in `programs/12_apply_models.Rmd`). The four column names indicate the model used to create the Secchi estmiates. Keep in mind that input values of the features (the band and met data that define the model) that are outside of the range of values used to train the model can create equally out-of-range Secchi estimations in the stepwise regression model. In general, {xgboost} handles these outliers better, but a very conservative and cautious approach dictates that Secchi estimations made with input values that are beyond the range of those in model development should be treated with skepticism.
 
 ------------------------------------------------------------------------
 
@@ -165,6 +170,8 @@ Jones, J. (2019). Improved automated detection of subpixel-scale inundation-revi
 Kuhn, M. (2008). Building Predictive Models in R Using the caret Package. Journal of Statistical Software, 28(5), 1--26. <https://doi.org/10.18637/jss.v028.i05>
 
 Kloiber, S. M., Brezonik, P. L., Olmanson, L. G., & Bauer, M. E. (2002). A procedure for regional lake water clarity assessment using Landsat multispectral data. *Remote sensing of Environment*, *82*(1), 38-47.
+
+Lumley, T. (2020). \_leaps: Regression Subset Selection\_. R package version 3.1, <https://CRAN.R-project.org/package=leaps>
 
 Muñoz Sabater, J., (2019): ERA5-Land daily averaged data from 1981 to present. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). (2023-03-30).
 

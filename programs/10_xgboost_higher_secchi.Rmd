@@ -901,6 +901,8 @@ model = optimized_booster_5d_3m
 met = '3 day met summaries'
 window = '5 day window'
 
+save(optimized_booster_5d_3m, file = 'data/models/optimized_xg_10_5d_3m.RData')
+
 full_stack <- read_csv('data/upstreamRS/yojoa_corr_rrs_met_scaled_v2023-06-15.csv') %>%
   mutate(secchi = 100) %>% 
     mutate(secchi = as.numeric(secchi)) %>% #there's one wonky value in here with two decimal points... dropping from this analysis

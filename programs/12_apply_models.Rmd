@@ -1,0 +1,133 @@
+---
+title: "Calculate Estimated Secchi"
+author: "B Steele, Matt Ross"
+date: "2023-06-22"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(caret)
+library(xgboost)
+library(lubridate)
+library(readr)
+
+match_dir = 'data/matchups/'
+rs_dir = 'data/upstreamRS/'
+is_dir = 'data/in-situ/'
+est_dir = 'data/landsat_estimations/'
+```
+
+# Purpose
+
+This script applies all of the top-performing models to the Landsat stack and exports the Landsat timerseries as a .csv file.
+
+## Load data
+
+```{r}
+stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_scaled_v2023-06-15.csv')) %>% 
+  mutate(secchi = NA_real_) %>% 
+  filter(date < ymd('2023-01-01')) #this is when met data ends
+```
+
+## Load models and parameters
+
+Here, we load the models. 
+
+```{r}
+load('data/models/optimized_xg_8_jd_51m.RData')
+xg_8_71d_51m = optimized_booster_jd_51m
+load('data/models/optimized_xg_9_5d_71m.RData')
+xg_9_5d_71m = optimized_booster_5d_71m
+load('data/models/optimized_xg_10_5d_3m.RData')
+xg_10_5d_3m = optimized_booster_5d_3m
+load('data/models/stepreg_71d_5m.RData')
+```
+
+And save the parameter groups
+
+```{r}
+band_met3_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
+                     'RN', 'BG', 'RB','GB',
+                     'tot_sol_rad_KJpm2_3', 'max_temp_degK_3', 'mean_temp_degK_3', 'min_temp_degK_3',
+                     'tot_precip_m_3', 'mean_wind_mps_3')
+
+band_met51_feats <- c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
+                     'RN', 'BG', 'RB','GB',
+                     'tot_sol_rad_KJpm2_5', 'max_temp_degK_5', 'mean_temp_degK_5', 'min_temp_degK_5',
+                     'tot_precip_m_5', 'mean_wind_mps_5',
+                     'solar_rad_KJpm2_prev', 'precip_m_prev','air_temp_degK_prev','wind_speed_mps_prev')
+
+band_met71_feats <- c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
+                     'RN', 'BG', 'RB','GB',
+                     'tot_sol_rad_KJpm2_7', 'max_temp_degK_7', 'mean_temp_degK_7', 'min_temp_degK_7',
+                     'tot_precip_m_7', 'mean_wind_mps_7',
+                     'solar_rad_KJpm2_prev', 'precip_m_prev','air_temp_degK_prev','wind_speed_mps_prev')
+
+band_met5_feats_scaled = c('med_Blue_corr_scaled', 'med_Red_corr_scaled', 'med_Green_corr_scaled', 
+         'med_Nir_corr_scaled',
+         'RN_scaled', 'BG_scaled', 'RB_scaled', 'GB_scaled', 
+         "tot_sol_rad_KJpm2_5_scaled", "max_temp_degK_5_scaled", "mean_temp_degK_5_scaled", "min_temp_degK_5_scaled",
+         "tot_precip_m_5_scaled", "mean_wind_mps_5_scaled")
+
+```
+
+## Apply to the dataset
+
+### stringent {xgboost}
+
+```{r}
+model = xg_8_71d_51m
+features = band_met51_feats
+
+stack_8_xgb <- xgb.DMatrix(data = as.matrix(stack[,features]))
+
+stack_8 <- stack %>%
+  mutate(est_secchi_stringent = predict(model, stack_8_xgb)) %>%
+  select(date, location, est_secchi_stringent, mission) 
+```
+
+### very stringent {xgboost}
+
+```{r}
+model = xg_9_5d_71m
+features = band_met71_feats
+
+stack_9_xgb <- xgb.DMatrix(data = as.matrix(stack[,features]))
+
+stack_9 <- stack %>%
+  mutate(est_secchi_verystringent = predict(model, stack_9_xgb)) %>%
+  select(date, location, est_secchi_verystringent, mission)
+```
+
+### very stringent {xgboost} with weighted high Secchi
+
+```{r}
+model = xg_10_5d_3m
+features = band_met3_feats
+
+stack_10_xgb <- xgb.DMatrix(data = as.matrix(stack[,features]))
+
+stack_10 <- stack %>%
+  mutate(est_secchi_highsecchi = predict(model, stack_10_xgb)) %>%
+  select(date, location, est_secchi_highsecchi, mission)
+```
+
+### stepwise regression
+
+```{r}
+stack_11 <- stack %>% 
+  mutate(est_secchi_stepwise = predict.train(object = step.model.71d5m, newdata = stack)) %>% 
+  select(date, location, est_secchi_stepwise, mission)
+```
+
+## save files
+
+```{r}
+all_est = full_join(stack_8, stack_9) %>% 
+  full_join(., stack_10) %>% 
+  full_join(., stack_11) %>% 
+  relocate(date, location, mission) 
+write_csv(all_est, file.path(est_dir, 'Yojoa_LS-derived_Secchi_estimates.csv'))
+```
+
