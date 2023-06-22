@@ -10,8 +10,5 @@
 .RData
 .Ruserdata
 
-# all .htmls since they don't render in GH
-*.html
-
 # .dsstore
 *.DS_Store
