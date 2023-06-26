@@ -4,6 +4,8 @@ This repository contains code to support a project led by Jemma Fadum and is bas
 
 The Landsat record was last acquired in March of 2023 by B. Steele using the code in the subdirectory 'landsat_c2'.
 
+Verbose methodology is provided in the Methods file in the parent folder.
+
 # Overaching workflow
 
 If you are reproducing this analysis from start to finish from scratch, the general workflow is:
