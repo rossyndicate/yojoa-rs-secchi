@@ -10,10 +10,10 @@ library(tidyverse)
 library(ggthemes)
 library(readr)
 
-is_dir = 'data/in-situ/'
-rs_dir = 'data/upstreamRS/'
-match_dir = 'data/matchups/'
-models_dir = 'data/models/'
+is_dir <- "data/in-situ/"
+rs_dir <- "data/upstreamRS/"
+match_dir <- "data/matchups/"
+models_dir <- "data/models/"
 ```
 
 # Methods
@@ -38,19 +38,19 @@ Landsat data acquisition was completed in the scripts within the 'landsat_c2' fo
 ```{r getCount, echo = F}
 # save function to get row count
 getCount <- function(dataset, miss, countType) {
-  if (miss == 'all') {
+  if (miss == "all") {
     df <- dataset
   } else {
-    df <- dataset %>% 
+    df <- dataset %>%
       filter(mission == miss)
   }
-  if (countType == 'imageDate') {
-    length(unique(df$date))
+  if (countType == "imageDate") {
+    length(unique(df$system.index))
   } else {
-    if (countType == 'matches') {
+    if (countType == "matches") {
       nrow(df)
     } else {
-      print('oops')
+      print("oops")
     }
   }
 }
@@ -78,11 +78,11 @@ getCount <- function(dataset, miss, countType) {
 
 ```{r, echo = F}
 getSiteCount <- function(dataset, site) {
-  if (site == 'all') {
+  if (site == "all") {
     df <- dataset
     nrow(df)
   } else {
-    df <- dataset %>% 
+    df <- dataset %>%
       filter(location == site)
     nrow(df)
   }
@@ -147,7 +147,7 @@ We used the R packages {caret} (Kuhn, 2008) and {leaps} (Lumley, 2020) to perfor
 
 ## Time series of estimated Secchi
 
-The time series of Secchi estimates from the four best performing models (one from each of the above models) have been calculated in a single file (`data/landsat_estimations/Yojoa_LS-derived_Secchi_estimates.csv`, created in `programs/12_apply_models.Rmd`). The four column names indicate the model used to create the Secchi estmiates. Keep in mind that input values of the features (the band and met data that define the model) that are outside of the range of values used to train the model can create equally out-of-range Secchi estimations in the stepwise regression model. In general, {xgboost} handles these outliers better, but a very conservative and cautious approach dictates that Secchi estimations made with input values that are beyond the range of those in model development should be treated with skepticism.
+The time series of Secchi estimates from the four best performing models (one from each of the above models) have been calculated in a single file (`data/landsat_estimations/Yojoa_LS-derived_Secchi_estimates.csv`, created in `programs/12_apply_models.Rmd`). The four column names indicate the model used to create the Secchi estimates. Keep in mind that input values of the features (the band and met data that define the model) that are outside of the range of values used to train the model can create equally out-of-range Secchi estimations in the stepwise regression model. In general, {xgboost} handles these outliers better, but a very conservative and cautious approach dictates that Secchi estimations made with input values that are beyond the range of those in model development should be treated with skepticism.
 
 ------------------------------------------------------------------------
 

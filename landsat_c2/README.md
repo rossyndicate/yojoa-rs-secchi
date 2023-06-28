@@ -16,7 +16,7 @@ A few notes about the collated/filtered/matchup data sets:
 
 * literateCode:
 
-When using these scripts, you must run them in the 'landsat_c2.RProj' file. If you run into issues with either gcloud or the ee module, see the 'CommonIssues.md' file in the 'helps' directory of the [ROSSyndicate/ROSS_RS_mini_tools](https://github.com/rossyndicate/ROSS_RS_mini_tools) repository.
+When using these scripts, you must run them in the 'yojoa-rs-secchi.RProj' file. If you run into issues with either gcloud or the ee module, see the 'CommonIssues.md' file in the 'helps' directory of the [ROSSyndicate/ROSS_RS_mini_tools](https://github.com/rossyndicate/ROSS_RS_mini_tools) repository.
 
     -  LandsatC2_M4-7_SurfaceRefTempStacks.rmd: level 2 surface reflectance and surface temperature stack pull for Landsat Collection 2 missions 4-7
 

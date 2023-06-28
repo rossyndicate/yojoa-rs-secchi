@@ -36,8 +36,7 @@ clarity. You can read more about this lake
 In this very stringent approach, we subset the Secchi-Landsat matchups
 by Landsat flyover, resulting in no image-date crossover between the
 train, test, or validation datasets. We then
-create a weighted feature that awards the model for estimating higher
-Secchi values well disproportionate to lower Secchi values.
+create a weighted feature that is used in the model to make deeper Secchi observations more important in the model train/test sets. 
 
 ## Load matchup data
 
@@ -57,7 +56,7 @@ target <- 'secchi'
 
 # xgboost Runs
 
-Here, we develop models for 3 days, 5 days, and jemma-special (7 days
+Here, we develop models for 3 days, 5 days, and local knowledge window (7 days
 except 1 day in oct/nov) matchup datasets.
 
 ## Name feature groups
@@ -203,7 +202,7 @@ dval_5d_71m <- xgb.DMatrix(data = as.matrix(val_5[,band_met71_feats]),
 ### Local Knowledge Window
 
 ```{r}
-## jemma window, 5 days previous met
+## Local knowledge window, 5 days previous met
 dtrain_jd_5m <- xgb.DMatrix(data = as.matrix(train_j[,band_met5_feats]), 
                             label = train_j[,target],
                             weight = train_j$weight)
@@ -216,7 +215,7 @@ dval_jd_5m <- xgb.DMatrix(data = as.matrix(val_j[,band_met5_feats]),
                      label = val_j[,target],
                             weight = val_j$weight)
 
-## jemma window, 3 days previous met
+## Local knowledge window, 3 days previous met
 dtrain_jd_3m <- xgb.DMatrix(data = as.matrix(train_j[,band_met3_feats]), 
                             label = train_j[,target],
                             weight = train_j$weight)
@@ -229,7 +228,7 @@ dval_jd_3m <- xgb.DMatrix(data = as.matrix(val_j[,band_met3_feats]),
                      label = val_j[,target],
                             weight = val_j$weight)
 
-## jemma window, 5/1 days previous met
+## Local knowledge window, 5/1 days previous met
 dtrain_jd_51m <- xgb.DMatrix(data = as.matrix(train_j[,band_met51_feats]), 
                             label = train_j[,target])
 
@@ -445,10 +444,10 @@ best_mod_5d_71m <- xgboost_hypertune_5d_71m[xgboost_hypertune_5d_71m$val_loss==m
 save(mod_summary_5d_71m,best_mod_5d_71m, file = 'data/models/paramsxg_ep_ds_val_5d_71m.RData')
 ```
 
-### Jemma-special, 3 day met
+### Local knowledge window, 3 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 3 day met
+## Hypertune xgboost local knowledge window, 3 day met
 xgboost_hypertune_jd_3m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -464,10 +463,10 @@ best_mod_jd_3m <- xgboost_hypertune_jd_3m[xgboost_hypertune_jd_3m$val_loss==min(
 save(mod_summary_jd_3m,best_mod_jd_3m, file = 'data/models/paramsxg_ep_ds_val_jd_3m.RData')
 ```
 
-### Jemma-special, 5 day met
+### Local knowledge window, 5 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 5 day met
+## Hypertune xgboost local knowledge window, 5 day met
 xgboost_hypertune_jd_5m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -483,10 +482,10 @@ best_mod_jd_5m <- xgboost_hypertune_jd_5m[xgboost_hypertune_jd_5m$val_loss==min(
 save(mod_summary_jd_5m,best_mod_jd_5m, file = 'data/models/paramsxg_ep_ds_val_jd_5m.RData')
 ```
 
-### Jemma-special, 5/1 day met
+### Local knowledge window, 5/1 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 5/1 day met
+## Hypertune xgboost local knowledge window, 5/1 day met
 xgboost_hypertune_jd_51m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -502,10 +501,10 @@ best_mod_jd_51m <- xgboost_hypertune_jd_51m[xgboost_hypertune_jd_51m$val_loss==m
 save(mod_summary_jd_51m,best_mod_jd_51m, file = 'data/models/paramsxg_ep_ds_val_jd_51m.RData')
 ```
 
-### Jemma-special, 7/1 day met
+### Local knowledge window, 7/1 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 5 day met
+## Hypertune xgboost local knowledge window, 5 day met
 xgboost_hypertune_jd_71m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -623,7 +622,7 @@ evals_5 <- preds_5 %>%
 evals_5
 ```
 
-### Jemma-special window dataset
+### Local knowledge window dataset
 
 ```{r}
 mod_summary_jd_3m %>% select(best_message)
@@ -813,7 +812,7 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_71m)) +
         plot.subtitle = element_text(hjust = 0.5))
 ```
 
-### Model Performance - Jemma window
+### Model Performance - local knowledge window
 
 ```{r}
 ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_3m)) + 
@@ -906,7 +905,8 @@ save(optimized_booster_5d_3m, file = 'data/models/optimized_xg_10_5d_3m.RData')
 full_stack <- read_csv('data/upstreamRS/yojoa_corr_rrs_met_scaled_v2023-06-15.csv') %>%
   mutate(secchi = 100) %>% 
     mutate(secchi = as.numeric(secchi)) %>% #there's one wonky value in here with two decimal points... dropping from this analysis
-    filter(!is.na(secchi))
+    filter(!is.na(secchi))%>% 
+  filter(date < ymd('2023-01-01'))
 
 stack_xgb <- xgb.DMatrix(data = as.matrix(full_stack[,features]))
 

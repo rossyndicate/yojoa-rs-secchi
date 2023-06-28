@@ -30,7 +30,7 @@ Script 1_RS_collate_harmonize.Rmd assumes that you have run the Landsat stack fi
 
 -   Filters applied: in 1_RS_collate_harmonize.Rmd, we've done the minimum filtering in 'Filter scene summaries' (dswe1 must be \> 10, IMAGE_QUALITY \>= 7). We may suggest to update this with new filters in the near future.
 
--   The files sameDay_LS-Secchi_matchups.csv, oneDay..., twoDay..., threeDay..., fiveDay... found in the data folder were created in the script 2_LSC2_secchi_matchup.Rmd 
+-   The files sameDay_LS-Secchi_matchups.csv, oneDay..., twoDay..., threeDay..., fiveDay... found in the data/matchups folder were created in the script 7_LSC2_secchi_matchup.Rmd 
 
 
 

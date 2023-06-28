@@ -28,7 +28,7 @@ This script uses stepwise regression as an alternative modeling approach for the
 
 ```{r}
 match5 = read.csv(file.path(match_dir, 'fiveDay_LS-Secchi_matchups_n237.csv'))
-match71 = read.csv(file.path(match_dir, 'jemma_multiDay_LS-Secchi_matchups_n238.csv'))
+match71 = read.csv(file.path(match_dir, 'multiDay_LS-Secchi_matchups_n238.csv'))
 
 stack = read.csv(file.path(rs_dir, 'yojoa_corr_rrs_met_scaled_v2023-06-15.csv'))
 secchi = read.csv(file.path(is_dir, 'Secchi_completedataset.csv')) %>% 
@@ -226,7 +226,7 @@ ggplot(test_match71, aes(x = secchi, y = predicted)) +
                parse = TRUE, 
                label.y = Inf, 
                vjust = 1.3) +
-  labs(title = 'Yojoa Secchi Stepwise Regression Test Data\nseven/one day matchups, band and 5-day met summaries', 
+  labs(title = 'Yojoa Secchi Stepwise Regression Test Data\n7/1 day matchups, band and 5-day met summaries', 
        subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +
@@ -246,7 +246,7 @@ test_match71 %>%
                parse = TRUE, 
                label.y = Inf, 
                vjust = 1.3) +
-  labs(title = 'Yojoa Secchi Stepwise Regression Test Data\nseven/one day matchups, band and 5-day met summaries', 
+  labs(title = 'Yojoa Secchi Stepwise Regression Test Data\n7/1 day matchups, band and 5-day met summaries', 
        subtitle = 'moderate data stringency\ngrey dashed line is 1:1', 
        x = 'Actual Secchi (m)', 
        y = 'Predicted Secchi (m)')  +

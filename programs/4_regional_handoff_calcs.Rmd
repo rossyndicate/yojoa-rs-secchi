@@ -11,11 +11,11 @@ library(tidyverse)
 
 # Purpose
 
-Landsat 4-7 and 8-9 surface reflectance data go through two different atmospheric corrections (LEDAPS and LaSRC). Additionally, each band wavelength can vary between missions. This script uses an adapted version of the methods in Topp, et al. 2021 to correct for each satellite handoff, correction to LS 7 values.
+Landsat 4-7 and 8-9 surface reflectance data go through two different atmospheric corrections ([LEDAPS](https://pubs.er.usgs.gov/publication/ofr20131057) and [LaSRC](https://ntrs.nasa.gov/api/citations/20190001670/downloads/20190001670.pdf)). Additionally, each band wavelength can vary between missions. This script uses an adapted version of the methods in Topp, et al. 2021 to correct for each satellite handoff, correction to LS 7 values.
 
 # Read in filtered data
 
-These data were filtered such that dswe1 \>= 10, image quality was \>= 7, and all median Rrs values \<0.2 in the program `4_regionalRS_collate_harmonize.Rmd`
+These data were filtered such that dswe1 \>= 10, image quality was \>= 7, and all median Rrs values between -0.01 and 0.2 in the program `3_regionalRS_collate_harmonize.Rmd`
 
 ```{r}
 filtered = read.csv('data/upstreamRS/HON_GUAT_ELSAL_regional_LandsatC2_SRST_filtered_v2023-03-31.csv') %>% 

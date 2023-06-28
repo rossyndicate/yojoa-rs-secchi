@@ -7,37 +7,7 @@ output: html_document
 
 # Purpose
 
-To pull all GEE-derived data into a single dataset with scene-level metadata and save locally.
-
-# Requirements
-
-Link the applicable OneDrive folder to the `data` folder in the primary directory - your link will be different than the one in the folder. To link your data folder (basically a fancy shortcut), follow the instructions below where the code blocks are executed in the terminal. This script also assumes that you have run the Landsat stack files in the 'landsat_c2' folder within this repository and have kept all settings as the initial commit. You will not be able to run this code without having run the scripts within the 'landsat_c2' directory.
-
-> [WINDOWS](https://winaero.com/sync-any-folder-onedrive-windows-10/): 
->
-> ```         
-> mklink /j “where\you\want\it” “where\it\lives\on\OneDrive”
-> ```
->
-> KATIE'S EXAMPLE: 
->
-> ```         
-> mklink /j "C:\Users\katie\Documents\0_My_Git\nps_water_vulnerability\data" "C:\Users\katie\OneDrive - Colostate\nps_water_vulnerability\data"
-> ```
->
-> [MAC OS](https://apple.stackexchange.com/a/259804): 
->
-> ```         
-> ln -s “where\it\lives\on\OneDrive” “where\you\want\it”
-> ```
->
-> Matt's example: 
->
-> ```         
-> ln -s "/Users/mbrousil/OneDrive - Colostate/aquasat_v2/data" "/Users/mbrousil/Documents/aquasat_v2/data"
-> ```
->
-> **NOTE FOR MAC USERS: This will likely prompt you to enter your password that you use to log on to your computer.**
+To pull all GEE-derived data into a single dataset with scene-level metadata and save locally. GEE data were obtained in the scripts within the yojoa-rs-secchi/landsat_c2 folder.
 
 # Setup
 
@@ -53,7 +23,6 @@ coll_dir = file.path('data/upstreamRS/')
 match_dir = file.path('data/matchups/')
 
 drive_auth()
-1
 ```
 
 # Download and collate data and metadata from Drive
@@ -160,7 +129,7 @@ filtered = data %>%
            IMAGE_QUALITY >= 7)
 ```
 
-We are also going to filter to remove any median Rrs values greater than 0.2
+We are also going to filter to remove any median Rrs values less than -0.01 and greater than 0.2, those are outside of the sensical range of values for water reflectance.
 
 ```{r}
 filtered = filtered %>% 
@@ -184,7 +153,7 @@ filtered <- filtered %>%
   full_join(., locs)
 ```
 
-## Export to OneDrive folder
+## Export to upstaremRS folder
 
 ```{r}
 write.csv(filtered, file.path(coll_dir, paste0('Yojoa_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
