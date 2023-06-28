@@ -6,11 +6,13 @@ This subdirectory houses data for the Yojoa project.
 
 * era5_met: these are data that were acquired/created using the scripts `GEE_scripts/era5_download.js` and `programs/2_Process_Summarize_ERA5.Rmd`
 
-* fromDrive: these are copies of the output from the GEE stack scripts in the `landsat_c2` folder.
+* in-situ: these are data originating from Jemma/Ed
 
-* in-situ: these are data originating from Jemma/Ed 
+* landsat_estimations: this folder contains the estimated Secchi depth from each of the models produced in the pipeline in the `programs` folder. 
 
 * matchups: these are matchup datasets created in the script `programs/7_LSC2_secchi_matchup.Rmd`
+
+* models: these are the models created in scripts 8-11 in the `programs` folder.
 
 * shapefiles: these are shapefiles and spatial data used to create the regional dataset. Shapefile generation was completed using QGIS-LTR 3.22 and the HydroLakes data base. The .csv file here `guat_hon_elsal_cetners_gt25.csv` is the output of the GEE script `GEE_scripts/guat_elsal_hon_getCenters.js`
 
