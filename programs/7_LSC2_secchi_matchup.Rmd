@@ -40,7 +40,7 @@ str(ls)
 
 ## Normalize the SR and met data
 
-While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for comparison with the stepwise regression method. Common methods of normalization include scaling and zscores. While most of the data is both non-normally distributed and/or skewed, we'll use min-max scaling to normalize.
+While unnecessary for the {xgboost} "gbtree" booster, we will scale the data for comparison with the stepwise regression method. Common methods of normalization include scaling and zscores. Because most of the data is both non-normally distributed and/or skewed, we'll use min-max scaling to normalize.
 
 ```{r}
 ls = ls %>% 
@@ -126,5 +126,5 @@ write.csv(oneDay_matchups, file.path(match_dir, paste0('oneDay_LS-Secchi_matchup
 write.csv(twoDay_matchups, file.path(match_dir, paste0('twoDay_LS-Secchi_matchups_n', nrow(twoDay_matchups), '.csv')), row.names = F)
 write.csv(threeDay_matchups, file.path(match_dir, paste0('threeDay_LS-Secchi_matchups_n', nrow(threeDay_matchups), '.csv')), row.names = F)
 write.csv(fiveDay_matchups, file.path(match_dir, paste0('fiveDay_LS-Secchi_matchups_n', nrow(fiveDay_matchups), '.csv')), row.names = F)
-write.csv(multi_match, file.path(match_dir, paste0('jemma_multiDay_LS-Secchi_matchups_n', nrow(multi_match), '.csv')), row.names = F)
+write.csv(multi_match, file.path(match_dir, paste0('multiDay_LS-Secchi_matchups_n', nrow(multi_match), '.csv')), row.names = F)
 ```

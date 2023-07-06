@@ -61,7 +61,7 @@ threeDay = read.csv(file.path(match_dir, match[grepl('three', match) & !grepl('u
 fiveDay = read.csv(file.path(match_dir, match[grepl('five', match) & !grepl('us', match)])) %>%
   prepData(.) %>% 
   mutate(weight = secchi/max(secchi)*10)
-jemma = read.csv(file.path(match_dir, match[grepl('jemma', match)])) %>% 
+multiMatch = read.csv(file.path(match_dir, match[grepl('multi', match)])) %>% 
   prepData(.) %>% 
   mutate(weight = secchi/max(secchi)*10)
 
@@ -150,7 +150,7 @@ November, when the lake can have dramatic shifts in clarity in a short
 period of time.
 
 ```{r}
-system.index = unique(jemma$system.index)
+system.index = unique(multiMatch$system.index)
 
 ##Pull 60% as training data
 train_j_uid <- tibble(system.index) %>%
@@ -165,15 +165,15 @@ val_j_uid <-  tibble(system.index) %>%
   anti_join(., test_j_uid)
 
 train_j <- train_j_uid %>% 
-  left_join(., jemma) %>% 
+  left_join(., multiMatch) %>% 
   data.frame(.)
 
 test_j <- test_j_uid %>% 
-  left_join(., jemma)%>% 
+  left_join(., multiMatch)%>% 
   data.frame(.)
 
 val_j <- val_j_uid %>% 
-  left_join(., jemma)%>% 
+  left_join(., multiMatch)%>% 
   data.frame(.)
 ```
 
@@ -190,7 +190,7 @@ save(train_3, test_3, val_3,
 
 Here, we indicate the features to be used in our models. We'll use the
 visual bands and add in summaries of ERA5 met data. In our datasets, the
-5-day met summaries have the suffix '\_5', etc. The first two models only inlcude recent weather summaries, but the final two models include 5 or 7 day weather summaries as well as the previous day's weather.
+5-day met summaries have the suffix '\_5', etc. The first two models only include recent weather summaries, but the final two models include 5 or 7 day weather summaries as well as the previous day's weather.
 
 ```{r}
 band_met3_feats <-  c('med_Blue_corr', 'med_Green_corr', 'med_Red_corr', 'med_Nir_corr',
@@ -313,7 +313,7 @@ dval_5d_71m <- xgb.DMatrix(data = as.matrix(val_5[,band_met71_feats]),
 ### Local Knowledge Window
 
 ```{r}
-## jemma window, 5 days previous met
+## local knowledge window, 5 days previous met
 dtrain_jd_5m <- xgb.DMatrix(data = as.matrix(train_j[,band_met5_feats]), 
                             label = train_j[,target])
 
@@ -323,7 +323,7 @@ dtest_jd_5m <- xgb.DMatrix(data = as.matrix(test_j[,band_met5_feats]),
 dval_jd_5m <- xgb.DMatrix(data = as.matrix(val_j[,band_met5_feats]), 
                      label = val_j[,target])
 
-## jemma window, 3 days previous met
+## local knowledge window, 3 days previous met
 dtrain_jd_3m <- xgb.DMatrix(data = as.matrix(train_j[,band_met3_feats]), 
                             label = train_j[,target])
 
@@ -333,7 +333,7 @@ dtest_jd_3m <- xgb.DMatrix(data = as.matrix(test_j[,band_met3_feats]),
 dval_jd_3m <- xgb.DMatrix(data = as.matrix(val_j[,band_met3_feats]), 
                      label = val_j[,target])
 
-## jemma window, 5/1 days previous met
+## local knowledge window, 5/1 days previous met
 dtrain_jd_51m <- xgb.DMatrix(data = as.matrix(train_j[,band_met51_feats]), 
                             label = train_j[,target])
 
@@ -343,7 +343,7 @@ dtest_jd_51m <- xgb.DMatrix(data = as.matrix(test_j[,band_met51_feats]),
 dval_jd_51m <- xgb.DMatrix(data = as.matrix(val_j[,band_met51_feats]), 
                      label = val_j[,target])
 
-## jemma window, 7/1 days previous met
+## local knowledge window, 7/1 days previous met
 dtrain_jd_71m <- xgb.DMatrix(data = as.matrix(train_j[,band_met71_feats]), 
                             label = train_j[,target])
 
@@ -546,10 +546,10 @@ best_mod_5d_71m <- xgboost_hypertune_5d_71m[xgboost_hypertune_5d_71m$val_loss==m
 save(mod_summary_5d_71m,best_mod_5d_71m, file = 'data/models/paramsxg_ep_val_5d_71m.RData')
 ```
 
-### Jemma-special, 3 day met
+### Local knowledge window, 3 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 3 day met
+## Hypertune xgboost local knowledge window, 3 day met
 xgboost_hypertune_jd_3m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -565,10 +565,10 @@ best_mod_jd_3m <- xgboost_hypertune_jd_3m[xgboost_hypertune_jd_3m$val_loss==min(
 save(mod_summary_jd_3m,best_mod_jd_3m, file = 'data/models/paramsxg_ep_val_jd_3m.RData')
 ```
 
-### Jemma-special, 5 day met
+### Local knowledge window, 5 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 5 day met
+## Hypertune xgboost local knowledge window, 5 day met
 xgboost_hypertune_jd_5m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -584,10 +584,10 @@ best_mod_jd_5m <- xgboost_hypertune_jd_5m[xgboost_hypertune_jd_5m$val_loss==min(
 save(mod_summary_jd_5m,best_mod_jd_5m, file = 'data/models/paramsxg_ep_val_jd_5m.RData')
 ```
 
-### Jemma-special, 5/1 day met
+### Local knowledge window, 5/1 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 5/1 day met
+## Hypertune xgboost local knowledge window, 5/1 day met
 xgboost_hypertune_jd_51m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -603,10 +603,10 @@ best_mod_jd_51m <- xgboost_hypertune_jd_51m[xgboost_hypertune_jd_51m$val_loss==m
 save(mod_summary_jd_51m,best_mod_jd_51m, file = 'data/models/paramsxg_ep_val_jd_51m.RData')
 ```
 
-### Jemma-special, 7/1 day met
+### Local knowledge window, 7/1 day met
 
 ```{r, eval = F}
-## Hypertune xgboost jemma window, 7/1 day met
+## Hypertune xgboost local knowledge window, 7/1 day met
 xgboost_hypertune_jd_71m <- grid_train %>%
   pmap_dfr(function(...) {
     current <- tibble(...)
@@ -724,7 +724,7 @@ evals_5 <- preds_5 %>%
 evals_5
 ```
 
-### Jemma-special window dataset
+### Local knowledge window dataset
 
 ```{r}
 mod_summary_jd_3m %>% select(best_message)
@@ -923,7 +923,7 @@ ggplot(preds_5, aes(x = secchi, y = pred_secchi_5d_71m)) +
 These look particularly poor at the higher secchi values.
 
 
-### Model Performance - Jemma window
+### Model Performance - local knowledge window
 
 ```{r, echo = F}
 ggplot(preds_jd, aes(x = secchi, y = pred_secchi_jd_3m)) + 
@@ -1015,7 +1015,8 @@ save(optimized_booster_5d_71m, file = 'data/models/optimized_xg_9_5d_71m.RData')
 
 full_stack <- read_csv('data/upstreamRS/yojoa_corr_rrs_met_scaled_v2023-06-15.csv') %>%
   mutate(secchi = 100) %>%
-  prepData(.) 
+  prepData(.) %>% 
+  filter(date < ymd('2023-01-01'))
 
 stack_xgb <- xgb.DMatrix(data = as.matrix(full_stack[,features]))
 

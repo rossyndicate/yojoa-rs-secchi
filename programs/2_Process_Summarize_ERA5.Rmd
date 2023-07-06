@@ -22,7 +22,7 @@ drive_auth()
 
 # Purpose
 
-This script creates 3, 5, 7 day summaries of the Copernicus ERA5 daily data for Yojoa for use in the downstream Secchi modeling efforts. The ERA5 data were aqcuired in Google Earth Engine using the script `era5_download.js`.
+This script creates 3, 5, 7 day summaries of the Copernicus ERA5 daily data for Yojoa for use in the downstream Secchi modeling efforts. The ERA5 data were acuuired in Google Earth Engine using the script `era5_download.js` found in the folder yojoa-rs-secchi/GEE_scripts.
 
 ### Suggested Citations:
 

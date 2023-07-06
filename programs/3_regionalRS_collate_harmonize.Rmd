@@ -9,36 +9,6 @@ output: html_document
 
 To pull all GEE-derived data into a single dataset with scene-level metadata and save locally - this script is specific for the regional run of the GEE script that grabbed data for lake centers for all lakes \>= 25ha in Guatemala, Honduras, and El Salvador in order to create a better hand off model for all missions.
 
-# Requirements
-
-Link the applicable OneDrive folder to the `data` folder in the primary directory - your link will be different than the one in the folder. To link your data folder (basically a fancy shortcut), follow the instructions below where the code blocks are executed in the terminal. This script also assumes that you have run the Landsat stack files in the 'landsat_c2' folder within this repository and have kept all settings as the initial commit. You will not be able to run this code without having run the scripts within the 'landsat_c2' directory.
-
-> [WINDOWS](https://winaero.com/sync-any-folder-onedrive-windows-10/): 
->
-> ```         
-> mklink /j “where\you\want\it” “where\it\lives\on\OneDrive”
-> ```
->
-> KATIE'S EXAMPLE: 
->
-> ```         
-> mklink /j "C:\Users\katie\Documents\0_My_Git\nps_water_vulnerability\data" "C:\Users\katie\OneDrive - Colostate\nps_water_vulnerability\data"
-> ```
->
-> [MAC OS](https://apple.stackexchange.com/a/259804): 
->
-> ```         
-> ln -s “where\it\lives\on\OneDrive” “where\you\want\it”
-> ```
->
-> Matt's example: 
->
-> ```         
-> ln -s "/Users/mbrousil/OneDrive - Colostate/aquasat_v2/data" "/Users/mbrousil/Documents/aquasat_v2/data"
-> ```
->
-> **NOTE FOR MAC USERS: This will likely prompt you to enter your password that you use to log on to your computer.**
-
 # Setup
 
 ```{r}
@@ -158,14 +128,14 @@ filtered = data %>%
            IMAGE_QUALITY >= 7)
 ```
 
-We are also going to filter to remove any median Rrs values greater than 0.2
+We are also going to filter to remove any median Rrs values less than -0.01 and greater than 0.2
 
 ```{r}
 filtered = filtered %>% 
   filter_at(vars(med_Red, med_Green, med_Blue, med_Nir, med_Swir1, med_Swir2), all_vars(.<0.2 & .>-0.01))
 ```
 
-## Export to OneDrive folder
+## Export to upstreamRS folder
 
 ```{r}
 write.csv(filtered, file.path(coll_dir, paste0('HON_GUAT_ELSAL_regional_LandsatC2_SRST_filtered_v', Sys.Date(), '.csv')), row.names = F)
