@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8139922.svg)](https://doi.org/10.5281/zenodo.8139922)
+
 # Yojoa Remote Sensing - Secchi
 
 This repository contains code to support a project led by Jemma Fadum and is 
